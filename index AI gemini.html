@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FILE SEGREGATOR AI - MASTER</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0c0f; --surface:#0f1318; --panel:#131820; --border:#1e2a38;
+    --accent:#00d4ff; --accent2:#ff6b35; --accent3:#39ff14;
+    --warn:#ffd700; --ai:#b06aff; --text:#c8d8e8; --muted:#4a5a6a;
+    --mono:'Share Tech Mono',monospace; --display:'Barlow Condensed',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;min-height:100vh;overflow-x:hidden;padding-bottom:32px;}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,.013) 2px,rgba(0,212,255,.013) 4px);pointer-events:none;z-index:1000;}
+
+  /* ── Header ── */
+  .header{padding:14px 28px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-end;gap:20px;background:linear-gradient(180deg,#0d1520 0%,var(--bg) 100%);}
+  .logo{font-family:var(--display);font-size:36px;font-weight:900;letter-spacing:6px;color:var(--accent);text-shadow:0 0 30px rgba(0,212,255,.4);line-height:1;}
+  .logo span{color:var(--accent2);}
+  .logo sup{font-size:14px;letter-spacing:2px;color:var(--ai);text-shadow:0 0 12px var(--ai);vertical-align:super;}
+  .tagline{font-family:var(--display);font-size:12px;font-weight:300;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-bottom:3px;}
+  .hstatus{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--muted);}
+  .sdot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+  .sdot.on{background:var(--accent3);box-shadow:0 0 8px var(--accent3);animation:blink 1.5s infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* ── Layout ── */
+  .wrap{display:flex;flex-direction:column;gap:1px;background:var(--border);}
+  .prow{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);}
+  .panel{background:var(--surface);padding:18px 22px;}
+  .plabel{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .plabel::after{content:'';flex:1;height:1px;background:var(--border);}
+  .plabel.ai-label{color:var(--ai);}
+  .plabel.ai-label::after{background:rgba(176,106,255,.3);}
+
+  /* ── Inputs / Boxes ── */
+  input[type=file]{display:none;}
+  .fbox{background:var(--panel);border:1px solid var(--border);padding:9px 13px;font-family:var(--mono);font-size:11px;color:var(--muted);min-height:36px;display:flex;align-items:center;gap:8px;word-break:break-all;cursor:pointer;transition:.2s;margin-bottom:8px;}
+  .fbox:hover{border-color:var(--accent);}
+  .fbox.src-set{color:var(--text);border-color:var(--accent);}
+  .fbox.dest-set{color:var(--text);border-color:var(--accent2);}
+  .api-input{background:var(--panel);border:1px solid var(--border);padding:9px 13px;font-family:var(--mono);font-size:12px;color:var(--text);width:100%;outline:none;transition:.2s;letter-spacing:2px;}
+  .api-input:focus{border-color:var(--ai);box-shadow:0 0 0 1px var(--ai);}
+  .api-input::placeholder{color:var(--muted);letter-spacing:0;}
+  select.api-input{appearance:none; cursor:pointer;}
+  .hint{font-size:10px;color:var(--muted);margin-top:6px;display:flex;gap:6px;}
+  .hint span:first-child{color:var(--accent);}
+
+  /* ── Buttons ── */
+  .btn{padding:9px 18px;border:none;cursor:pointer;font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;transition:.15s;}
+  .btn-src{border:1px solid var(--accent);color:var(--accent);background:transparent;}
+  .btn-src:hover{background:var(--accent);color:var(--bg);box-shadow:0 0 20px rgba(0,212,255,.4);}
+  .btn-dest{border:1px solid var(--accent2);color:var(--accent2);background:transparent;}
+  .btn-dest:hover{background:var(--accent2);color:var(--bg);box-shadow:0 0 20px rgba(255,107,53,.4);}
+  .btn-scan{border:1px solid var(--accent3);color:var(--accent3);background:transparent;margin-top:8px;}
+  .btn-scan:hover:not(:disabled){background:rgba(57,255,20,.1);}
+  .btn-scan:disabled{opacity:.35;cursor:not-allowed;}
+  .btn-go{background:var(--accent3);color:var(--bg);border:none;font-size:15px;padding:12px 32px;box-shadow:0 0 20px rgba(57,255,20,.35);}
+  .btn-go:hover:not(:disabled){box-shadow:0 0 40px rgba(57,255,20,.65);transform:translateY(-1px);}
+  .btn-go:disabled{background:var(--muted);box-shadow:none;cursor:not-allowed;transform:none;color:#333;}
+  .btn-reset{border:1px solid var(--muted);color:var(--muted);background:transparent;font-size:11px;padding:7px 14px;}
+  .btn-reset:hover{border-color:var(--text);color:var(--text);}
+
+  /* ── Notes ── */
+  .note{background:rgba(255,215,0,.05);border-left:3px solid var(--warn);padding:7px 13px;font-size:11px;color:var(--warn);display:flex;gap:8px; line-height:1.4;}
+  .note.green{background:rgba(57,255,20,.05);border-color:var(--accent3);color:var(--accent3);}
+  .note.ai{background:rgba(176,106,255,.07);border-color:var(--ai);color:var(--ai);}
+
+  /* ── AI Config Panel ── */
+  .ai-panel{background:var(--surface);padding:16px 22px;border-bottom:1px solid var(--border);}
+  .ai-row{display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;}
+  .ai-key-wrap{flex:2;min-width:320px;}
+  .ai-options-wrap{flex:2;min-width:380px;}
+  .ai-toggle-wrap{display:flex;align-items:center;gap:10px;white-space:nowrap;}
+  .toggle{position:relative;width:42px;height:22px;flex-shrink:0;}
+  .toggle input{opacity:0;width:0;height:0;}
+  .tslider{position:absolute;inset:0;background:var(--border);border-radius:11px;cursor:pointer;transition:.25s;}
+  .tslider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:var(--muted);border-radius:50%;transition:.25s;}
+  input:checked + .tslider{background:var(--ai);box-shadow:0 0 8px rgba(176,106,255,.5);}
+  input:checked + .tslider::before{transform:translateX(20px);background:#fff;}
+  .toggle-label{font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}
+  .toggle-label.on{color:var(--ai);}
+  .ai-model-badge{background:rgba(176,106,255,.1);border:1px solid rgba(176,106,255,.3);padding:3px 10px;font-size:10px;letter-spacing:2px;color:var(--ai);white-space:nowrap;}
+  .api-status{font-size:10px;margin-top:5px;display:flex;align-items:center;gap:6px;}
+  .api-status-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+  .api-status-dot.ok{background:var(--accent3);box-shadow:0 0 4px var(--accent3);}
+  .api-status-dot.err{background:#ff4444;}
+  .show-key-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;text-decoration:underline;font-family:var(--mono);}
+  .show-key-btn:hover{color:var(--text);}
+  .quota-box{background:#070a0d; border:1px solid var(--border); padding:8px 12px; font-size:10px; color:var(--muted); margin-top:8px; line-height:1.5;}
+  .quota-box span{color:var(--text);}
+
+  /* ── Summary ── */
+  .summary{background:var(--surface);padding:18px 22px;display:none;flex-direction:column;gap:14px;}
+  .summary.on{display:flex;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);}
+  .col-block{background:var(--panel);padding:14px 18px;}
+  .st-label{font-family:var(--display);font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;}
+  .st-val{font-family:var(--display);font-size:28px;font-weight:900;color:var(--accent);line-height:1;}
+  .st-val.d{color:var(--accent2);}
+  .st-row{display:flex;gap:24px;margin-top:8px;}
+  .cats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px;}
+  .ccard{background:var(--panel);border:1px solid var(--border);padding:9px 13px;display:flex;flex-direction:column;gap:3px;position:relative;overflow:hidden;transition:border-color .2s;}
+  .ccard:hover{border-color:var(--accent);}
+  .ccard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ext-color,var(--accent));}
+  .ccat{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:2px;color:var(--text);}
+  .cicon{font-size:16px;margin-bottom:1px;}
+  .ccount{font-family:var(--display);font-size:22px;font-weight:900;color:var(--accent);line-height:1;}
+  .csize{font-size:10px;color:var(--muted);}
+  .flist-wrap{background:var(--panel);border:1px solid var(--border);max-height:150px;overflow-y:auto;}
+  .flist-wrap::-webkit-scrollbar{width:4px;}
+  .flist-wrap::-webkit-scrollbar-thumb{background:var(--muted);}
+  .frow{display:flex;gap:10px;padding:5px 12px;border-bottom:1px solid rgba(30,42,56,.5);font-size:11px;align-items:center;}
+  .frow:last-child{border-bottom:none;}
+  .frow:hover{background:rgba(0,212,255,.03);}
+  .fname{color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .fsize{color:var(--muted);flex-shrink:0;min-width:60px;text-align:right;}
+  .fcat{flex-shrink:0;font-size:10px;padding:1px 6px;background:var(--border);color:var(--muted);border-radius:1px;}
+  .actions{display:flex;align-items:center;gap:12px;padding-top:12px;border-top:1px solid var(--border);}
+  .ainfo{color:var(--muted);font-size:11px;margin-left:auto;}
+
+  /* ── Log Panel ── */
+  .logpanel{background:var(--surface);display:none;flex-direction:column;}
+  .logpanel.on{display:flex;}
+  .loghdr{padding:9px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--panel);}
+  .logtitle{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:4px;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
+  .phase-badges{display:flex;gap:6px;}
+  .phase-badge{font-family:var(--display);font-size:10px;font-weight:700;letter-spacing:2px;padding:2px 8px;border-radius:1px;text-transform:uppercase;opacity:.4;transition:.3s;}
+  .phase-badge.active{opacity:1;}
+  .phase-badge.p1{border:1px solid var(--accent);color:var(--accent);}
+  .phase-badge.p1.active{background:rgba(0,212,255,.1);}
+  .phase-badge.p2{border:1px solid var(--ai);color:var(--ai);}
+  .phase-badge.p2.active{background:rgba(176,106,255,.1);}
+  .pbwrap{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .pb{height:100%;width:0%;transition:width .3s;box-shadow:0 0 8px var(--accent3);}
+  .pb.copy-pb{background:linear-gradient(90deg,var(--accent3),var(--accent));}
+  .pb.ai-pb{background:linear-gradient(90deg,var(--ai),var(--accent));}
+  .ppct{font-size:11px;color:var(--accent3);min-width:36px;text-align:right;}
+  .logout{overflow-y:auto;padding:12px 22px;font-size:11px;line-height:1.8;background:#070a0d;max-height:260px;}
+  .logout::-webkit-scrollbar{width:4px;}
+  .logout::-webkit-scrollbar-thumb{background:var(--muted);}
+  .lline{display:flex;gap:10px;align-items:baseline;}
+  .ltime{color:var(--muted);flex-shrink:0;}
+  .lok{color:var(--accent3);}
+  .lerr{color:#ff4444;}
+  .linfo{color:var(--accent);}
+  .lwarn{color:var(--warn);}
+  .lai{color:var(--ai);}
+  .lmsg{color:var(--text);}
+  .lpath{color:var(--muted);font-size:10px;}
+  .lsub{color:var(--ai);font-size:10px;font-style:italic;}
+  .done-banner{display:none;background:rgba(57,255,20,.08);border:1px solid var(--accent3);padding:10px 22px;text-align:center;font-family:var(--display);font-size:15px;font-weight:700;letter-spacing:4px;color:var(--accent3);text-shadow:0 0 20px rgba(57,255,20,.5);}
+  .done-banner.on{display:block;}
+
+  /* ── Status Bar ── */
+  .statusbar{position:fixed;bottom:0;left:0;right:0;height:32px;background:#080b0f;border-top:1px solid var(--border);display:flex;align-items:center;font-size:11px;font-family:var(--mono);z-index:500;overflow:hidden;}
+  .sb-seg{display:flex;align-items:center;gap:7px;padding:0 14px;height:100%;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0;}
+  .sb-seg:last-child{border-right:none;margin-left:auto;}
+  .sb-label{color:var(--muted);letter-spacing:2px;font-size:10px;text-transform:uppercase;}
+  .sb-val{color:var(--text);}
+  .sb-val.accent{color:var(--accent);}
+  .sb-val.accent2{color:var(--accent2);}
+  .sb-val.green{color:var(--accent3);}
+  .sb-val.warn{color:var(--warn);}
+  .sb-val.ai{color:var(--ai);}
+  .sb-phase{display:flex;align-items:center;gap:7px;padding:0 14px;height:100%;border-right:1px solid var(--border);}
+  .sb-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s;}
+  .sb-dot.idle{background:var(--muted);}
+  .sb-dot.loading{background:var(--accent);box-shadow:0 0 6px var(--accent);animation:blink 1s infinite;}
+  .sb-dot.ready{background:var(--warn);box-shadow:0 0 6px var(--warn);}
+  .sb-dot.copy{background:var(--accent3);box-shadow:0 0 6px var(--accent3);animation:blink .8s infinite;}
+  .sb-dot.classify{background:var(--ai);box-shadow:0 0 6px var(--ai);animation:blink .6s infinite;}
+  .sb-dot.done{background:var(--accent3);box-shadow:0 0 6px var(--accent3);}
+  .sb-dot.error{background:#ff4444;box-shadow:0 0 6px #ff4444;animation:blink .5s infinite;}
+  .sb-plabel{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);transition:color .3s;}
+  .sb-plabel.idle{color:var(--muted);}
+  .sb-plabel.loading{color:var(--accent);}
+  .sb-plabel.ready{color:var(--warn);}
+  .sb-plabel.copy{color:var(--accent3);}
+  .sb-plabel.classify{color:var(--ai);}
+  .sb-plabel.done{color:var(--accent3);}
+  .sb-plabel.error{color:#ff4444;}
+  .sb-activity{flex:1;padding:0 14px;height:100%;display:flex;align-items:center;gap:8px;overflow:hidden;min-width:0;border-right:1px solid var(--border);}
+  .sb-act-icon{font-size:12px;flex-shrink:0;}
+  .sb-act-text{color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sb-act-text.active{color:var(--text);}
+
+  #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events:none;}
+  .toast { background: var(--surface); border-left: 4px solid var(--warn); color: var(--text); padding: 12px 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); animation: slideIn 0.3s ease-out; font-family: var(--mono); font-size: 12px; line-height: 1.5; pointer-events:auto;}
+  .toast strong { color: var(--warn); display:block; margin-bottom:4px; font-family: var(--display); letter-spacing:2px; font-size:14px; text-transform:uppercase;}
+  @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div>
+    <div class="logo">FILE<span>SEG</span> <sup>MASTER</sup></div>
+    <div class="tagline">Enterprise AI Segregation · Deterministic Router</div>
+  </div>
+  <div class="hstatus">
+    <div class="sdot" id="sdot"></div>
+    <span id="stxt">IDLE</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="prow">
+    <div class="panel">
+      <div class="plabel">01 · Source Folder</div>
+      <div class="fbox" id="srcBox" onclick="document.getElementById('srcInput').click()">
+        <span>📂</span><span id="srcLabel">Click to select source folder</span>
+      </div>
+      <input type="file" id="srcInput" webkitdirectory multiple onchange="onSrcChange(this)">
+      <button class="btn btn-src" onclick="document.getElementById('srcInput').click()">▶ SELECT SOURCE FOLDER</button>
+      <div class="hint"><span>ℹ</span><span>Recursively scanned. Source files are NEVER deleted.</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="plabel">02 · Destination Folder</div>
+      <div class="fbox" id="destBox" onclick="pickDest()" style="cursor:pointer;">
+        <span>📁</span><span id="destLabel">Click to select destination folder</span>
+      </div>
+      <button class="btn btn-dest" onclick="pickDest()">▶ SELECT DESTINATION FOLDER</button>
+      <div class="hint"><span>ℹ</span><span>Generates Segregation_Report.txt upon completion.</span></div>
+      <div style="margin-top:10px" class="note green">
+        <span>✓</span><span>Source files are <strong>never deleted</strong> — copy only</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ai-panel">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
+      <div class="plabel ai-label" style="margin-bottom:0;flex-shrink:0;">03 · AI Classification</div>
+      <div class="ai-toggle-wrap">
+        <label class="toggle">
+          <input type="checkbox" id="aiToggle" onchange="onAiToggle()" checked>
+          <span class="tslider"></span>
+        </label>
+        <span class="toggle-label on" id="toggleLabel">ENABLED</span>
+      </div>
+      <div class="ai-model-badge" id="modelBadge">gemini-2.5-flash</div>
+      <div id="apiStatusWrap" style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);">
+        <div class="api-status-dot" id="apiDot"></div>
+        <span id="apiStatusText">No key entered</span>
+      </div>
+    </div>
+
+    <div class="ai-row">
+      <div class="ai-key-wrap">
+        <div style="display:flex;gap:10px;margin-bottom:8px; align-items:flex-end;">
+          <div style="flex:1; min-width:120px;">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;">PROVIDER</div>
+            <select class="api-input" id="aiProvider" onchange="updateQuotaInfo()" style="padding:7px 10px;">
+              <option value="google">Google (Gemini)</option>
+              <option value="openai">OpenAI (ChatGPT)</option>
+              <option value="anthropic">Anthropic (Claude)</option>
+            </select>
+          </div>
+          
+          <div style="flex:0; min-width:90px;">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;">PLAN TIER</div>
+            <div class="ai-toggle-wrap" style="height:31px; background:var(--panel); border:1px solid var(--border); padding:0 8px; display:inline-flex;">
+              <label class="toggle" style="transform:scale(0.85); margin-right:4px;">
+                <input type="checkbox" id="tierToggle" onchange="updateQuotaInfo()">
+                <span class="tslider"></span>
+              </label>
+              <span class="toggle-label" id="tierLabel" style="font-size:11px;">FREE</span>
+            </div>
+          </div>
+
+          <div style="flex:2; min-width:180px;">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;">API KEY</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input class="api-input" type="password" id="apiKeyInput" placeholder="AIza..." oninput="onApiKeyChange()" autocomplete="off">
+              <button class="show-key-btn" onclick="toggleKeyVis()" id="showKeyBtn">show</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="quota-box" id="quotaBox">
+          Speed Limit: <span id="qSpeed">15 files/min</span> &nbsp;|&nbsp; Daily Quota: <span id="qDaily">1,500 files/day</span><br>
+          <i style="color:var(--muted); font-size:9px;">Software will automatically enforce delays to prevent rate-limit crashes.</i>
+        </div>
+      </div>
+
+      <div class="ai-options-wrap">
+        <div style="display:flex; gap:10px; margin-bottom:8px; align-items:flex-end;">
+          <div style="flex:1.5;">
+            <div style="font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:5px; font-weight:bold;">ROUTER MODE (OPTIONAL)</div>
+            <input class="api-input" type="text" id="customCategories" placeholder="e.g. Invoices, Personal, Reports" style="font-family:var(--display); letter-spacing:1px; padding:7px 10px;">
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;">CREATIVITY (TEMP)</div>
+            <select class="api-input" id="aiCreativity" style="padding:7px 10px;">
+              <option value="0.1">LOW (0.1) - Strict</option>
+              <option value="0.5">MED (0.5) - Balanced</option>
+              <option value="1.0">HIGH (1.0) - Creative</option>
+            </select>
+          </div>
+        </div>
+        <div class="note ai" style="font-size:10px;">
+          <span>🤖</span>
+          <span>AI is programmed to make its <strong>best educated guess</strong>. It is forbidden from using "Unclassified" to prevent dumping files.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="padding:12px 22px;display:flex;align-items:center;gap:14px;">
+    <button class="btn btn-scan" id="scanBtn" onclick="buildSummary()" disabled>🔍 SCAN &amp; PREVIEW</button>
+    <span id="scanHint" style="color:var(--muted);font-size:11px;">Select source &amp; destination folders first</span>
+  </div>
+
+  <div class="summary" id="summaryPanel">
+    <div class="plabel">04 · Pre-Segregation Summary</div>
+    <div class="two-col">
+      <div class="col-block">
+        <div class="st-label">Source</div>
+        <div id="sumSrc" style="font-size:12px;color:var(--text);word-break:break-all;margin-bottom:8px;">—</div>
+        <div class="st-row">
+          <div><div class="st-label">FILES</div><div class="st-val" id="sumFiles">0</div></div>
+          <div><div class="st-label">SIZE</div><div class="st-val" id="sumSize">0 B</div></div>
+          <div><div class="st-label">EXT TYPES</div><div class="st-val" id="sumCats">0</div></div>
+        </div>
+      </div>
+      <div class="col-block">
+        <div class="st-label">Destination</div>
+        <div id="sumDest" style="font-size:12px;color:var(--accent2);word-break:break-all;margin-bottom:8px;">—</div>
+        <div class="st-row">
+          <div><div class="st-label">EXT FOLDERS</div><div class="st-val d" id="sumFolders">0</div></div>
+          <div><div class="st-label">TOTAL SIZE</div><div class="st-val d" id="sumZipSize">—</div></div>
+          <div><div class="st-label">AI MODE</div><div class="st-val" id="sumAiMode" style="font-size:16px;color:var(--ai);">ON</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="plabel" style="margin-top:4px">Extension Types Detected</div>
+    <div class="cats-grid" id="catGrid"></div>
+
+    <div class="plabel" style="margin-top:4px">All Files <span id="fcLabel" style="color:var(--accent);font-size:10px"></span></div>
+    <div class="flist-wrap" id="fileList"></div>
+
+    <div class="actions">
+      <button class="btn btn-go" id="goBtn" onclick="startSegregate()">⚡ START SEGREGATION</button>
+      <button class="btn btn-reset" onclick="resetAll()">↺ RESET</button>
+      <span class="ainfo" id="ainfo"></span>
+    </div>
+  </div>
+
+  <div class="logpanel" id="logPanel">
+    <div class="loghdr">
+      <div class="logtitle">⚡ Log</div>
+      <div class="phase-badges">
+        <div class="phase-badge p1" id="badge1">PHASE 1 · COPY</div>
+        <div class="phase-badge p2" id="badge2">PHASE 2 · AI CLASSIFY</div>
+      </div>
+      <div class="pbwrap" style="margin-left:12px;"><div class="pb copy-pb" id="pb"></div></div>
+      <div class="ppct" id="ppct">0%</div>
+    </div>
+    <div class="done-banner" id="doneBanner"></div>
+    <div class="logout" id="logOut"></div>
+  </div>
+
+</div>
+
+<div class="statusbar">
+  <div class="sb-phase">
+    <div class="sb-dot idle" id="sbDot"></div>
+    <div class="sb-plabel idle" id="sbLabel">IDLE</div>
+  </div>
+  <div class="sb-activity">
+    <span class="sb-act-icon" id="sbIcon">—</span>
+    <span class="sb-act-text" id="sbText">No operation in progress</span>
+  </div>
+  <div class="sb-seg"><span class="sb-label">FILES</span><span class="sb-val accent" id="sbFiles">—</span></div>
+  <div class="sb-seg"><span class="sb-label">PROGRESS</span><span class="sb-val green" id="sbProg">—</span></div>
+  <div class="sb-seg"><span class="sb-label">SPEED</span><span class="sb-val accent2" id="sbSpeed">—</span></div>
+  <div class="sb-seg"><span class="sb-label">ELAPSED</span><span class="sb-val" id="sbElapsed">—</span></div>
+  <div class="sb-seg"><span class="sb-label">ERRORS</span><span class="sb-val" id="sbErrors">0</span></div>
+  <div class="sb-seg"><span class="sb-label">AI CALLS</span><span class="sb-val ai" id="sbAiCalls">—</span></div>
+  <div class="sb-seg" style="margin-left:auto;border-left:1px solid var(--border);border-right:none;">
+    <span class="sb-label">FILESEG</span><span class="sb-val" style="color:var(--muted)">MASTER</span>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// Intelligence & Quota Dictionary
+// ══════════════════════════════════════════════════════════════════════════════
+const API_LIMITS = {
+  google:    { free: { rpm: 15, rpd: 1500 }, pro: { rpm: 360, rpd: 10000 } },
+  openai:    { free: { rpm: 3,  rpd: 200 },  pro: { rpm: 500, rpd: 10000 } },
+  anthropic: { free: { rpm: 5,  rpd: 250 },  pro: { rpm: 50,  rpd: 10000 } }
+};
+
+let allFiles = [], destHandle = null;
+let _sbTimer = null, _sbStart = null, _sbDone = 0, _sbTotal = 0, _sbErrors = 0;
+let aiCategoriesCreated = new Set(); 
+let notifiedThresholds = new Set();
+let sessionLogReport = []; 
+
+const ALERT_THRESHOLDS = [25, 50, 75, 90, 95, 99];
+
+const IMG_EXTS  = new Set(['jpg','jpeg','png','gif','webp','bmp','heic','heif','avif']);
+const PDF_EXT   = 'pdf';
+const TEXT_EXTS = new Set(['txt','text','md','markdown','rst','adoc','log','csv','json','jsonl',
+  'xml','yaml','yml','toml','ini','cfg','conf','env','html','htm','js','mjs','ts','tsx','jsx',
+  'py','pyw','java','c','h','cpp','hpp','cs','go','rs','rb','php','swift','sh','bash','zsh',
+  'sql','r','jl','css','scss','sass','less','vue','svelte','kt','scala','dart','pl','lua',
+  'dockerfile','makefile','gitignore','htaccess','properties','tex','ltx','nfo','srt','vtt']);
+
+const IMG_MIME = { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif',
+  webp:'image/webp', bmp:'image/bmp', heic:'image/heic', heif:'image/heif', avif:'image/avif' };
+
+const EXT_META = {
+  jpg:'🖼️', pdf:'📕', docx:'📝', xlsx:'📊', mp4:'🎬', mp3:'🎵', zip:'🗜️', py:'🐍', js:'📜', html:'🌐' 
+};
+function getCat(f) { const e = f.includes('.')?f.split('.').pop().toLowerCase():''; return e?e.toUpperCase():'NO_EXTENSION'; }
+function getIcon(e) { return EXT_META[e.toLowerCase()] || '📦'; }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UI & Quota Controllers
+// ══════════════════════════════════════════════════════════════════════════════
+function updateQuotaInfo() {
+  const prov = document.getElementById('aiProvider').value;
+  const isPro = document.getElementById('tierToggle').checked;
+  const input = document.getElementById('apiKeyInput');
+  const badge = document.getElementById('modelBadge');
+  const lbl = document.getElementById('tierLabel');
+  
+  lbl.textContent = isPro ? 'PRO' : 'FREE';
+  lbl.style.color = isPro ? 'var(--warn)' : 'var(--muted)';
+
+  if (prov === 'google') { input.placeholder = 'AIza...'; badge.textContent = 'gemini-2.5-flash'; }
+  else if (prov === 'openai') { input.placeholder = 'sk-proj-...'; badge.textContent = 'gpt-4o-mini'; }
+  else if (prov === 'anthropic') { input.placeholder = 'sk-ant-api03-...'; badge.textContent = 'claude-haiku-4-5'; }
+
+  const limits = API_LIMITS[prov][isPro ? 'pro' : 'free'];
+  document.getElementById('qSpeed').textContent = `${limits.rpm} files/min`;
+  document.getElementById('qDaily').textContent = `${limits.rpd.toLocaleString()} files/day`;
+
+  onApiKeyChange();
+}
+
+function onAiToggle() {
+  const on = document.getElementById('aiToggle').checked;
+  document.getElementById('toggleLabel').textContent = on ? 'ENABLED' : 'DISABLED';
+  document.getElementById('toggleLabel').className = 'toggle-label' + (on ? ' on' : '');
+  document.getElementById('sumAiMode').textContent = on ? 'ON' : 'OFF';
+  document.getElementById('sumAiMode').style.color = on ? 'var(--ai)' : 'var(--muted)';
+  checkScanReady();
+}
+
+function onApiKeyChange() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  const prov = document.getElementById('aiProvider').value;
+  const d1 = document.getElementById('apiDot'), d2 = document.getElementById('apiDot2'), msg = document.getElementById('apiMsg');
+  
+  if (!key) { d1.className=d2.className='api-status-dot'; msg.textContent='Enter API key to enable AI subclassification'; return; }
+  let valid = (prov==='anthropic'&&key.startsWith('sk-ant-')) || (prov==='openai'&&key.startsWith('sk-')) || (prov==='google'&&key.length>20);
+  d1.className = d2.className = `api-status-dot ${valid?'ok':'err'}`;
+  msg.textContent = valid ? 'Key format looks valid ✓' : 'Key format does not match selected provider';
+}
+
+function toggleKeyVis() {
+  const i=document.getElementById('apiKeyInput'), b=document.getElementById('showKeyBtn');
+  if(i.type==='password'){i.type='text';b.textContent='hide';}else{i.type='password';b.textContent='show';}
+}
+
+function showToast(msg) {
+  const c = document.getElementById('toast-container') || (()=>{ const d=document.createElement('div'); d.id='toast-container'; document.body.appendChild(d); return d; })();
+  const t = document.createElement('div'); t.className='toast'; t.innerHTML=`<strong>⚠️ Quota Alert</strong>${msg}`;
+  c.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(120%)'; setTimeout(()=>t.remove(),300); }, 7000);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// File Setup
+// ══════════════════════════════════════════════════════════════════════════════
+async function pickDest() {
+  try {
+    destHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    document.getElementById('destLabel').textContent = `📁 ${destHandle.name}`;
+    document.getElementById('destBox').classList.add('dest-set');
+    checkScanReady(); if(allFiles.length) buildSummary();
+  } catch(e) { if(e.name!=='AbortError') alert('Could not open destination: ' + e.message); }
+}
+
+function checkScanReady() {
+  const r = allFiles.length > 0 && destHandle !== null;
+  document.getElementById('scanBtn').disabled = !r;
+  document.getElementById('scanHint').textContent = r ? `${allFiles.length} files loaded — click Scan & Preview` : 'Select source & destination folders';
+}
+
+function onSrcChange(i) {
+  allFiles = Array.from(i.files);
+  if(!allFiles.length) return;
+  if(allFiles.length > 10000) { alert('Folder too massive. Please select a folder under 10,000 files to prevent browser crashing.'); resetAll(); return; }
+  const t = allFiles[0].webkitRelativePath.split('/')[0];
+  document.getElementById('srcLabel').textContent = `📁 ${t} (${allFiles.length} files)`;
+  document.getElementById('srcBox').classList.add('src-set');
+  checkScanReady(); document.getElementById('summaryPanel').classList.remove('on'); document.getElementById('logPanel').classList.remove('on');
+  setStatus('on','SOURCE LOADED'); sbSet('loading','SOURCE LOADED'); sbAct('📂',`${t} — ${allFiles.length} files detected`,true); sbUpdate(0,allFiles.length,0);
+}
+
+function buildSummary() {
+  if(!allFiles.length) return;
+  const cm={}; allFiles.forEach(f=>{const c=getCat(f.name); if(!cm[c])cm[c]={count:0,size:0}; cm[c].count++; cm[c].size+=f.size;});
+  const t = allFiles.reduce((a,f)=>a+f.size,0);
+  document.getElementById('sumSrc').textContent = allFiles[0].webkitRelativePath.split('/')[0];
+  document.getElementById('sumDest').textContent = destHandle?destHandle.name:'—';
+  document.getElementById('sumFiles').textContent = allFiles.length;
+  document.getElementById('sumSize').textContent = fmtSize(t);
+  document.getElementById('sumCats').textContent = document.getElementById('sumFolders').textContent = Object.keys(cm).length;
+  document.getElementById('sumZipSize').textContent = fmtSize(t);
+
+  const P = ['#00d4ff','#ff6b35','#39ff14','#ffd700','#b06aff','#ff6b9d','#f59e0b','#3b82f6'];
+  const grid=document.getElementById('catGrid'); grid.innerHTML=''; let ci=0;
+  Object.entries(cm).sort((a,b)=>b[1].count-a[1].count).forEach(([n,d])=>{
+    const c=document.createElement('div'); c.className='ccard'; c.style.setProperty('--ext-color',P[ci++%P.length]);
+    c.innerHTML=`<div class="cicon">${getIcon(n)}</div><div class="ccat">${n==='NO_EXTENSION'?'No Ext':'.'+n.toLowerCase()}</div><div class="ccount">${d.count}</div><div class="csize">${fmtSize(d.size)}</div>`;
+    grid.appendChild(c);
+  });
+
+  const list=document.getElementById('fileList'); list.innerHTML='';
+  document.getElementById('fcLabel').textContent=`(${allFiles.length} files)`;
+  allFiles.forEach(f=>{
+    const r=document.createElement('div'); r.className='frow';
+    r.innerHTML=`<span class="fname" title="${f.webkitRelativePath}">${f.webkitRelativePath}</span><span class="fsize">${fmtSize(f.size)}</span><span class="fcat">${getCat(f.name)}</span>`;
+    list.appendChild(r);
+  });
+  document.getElementById('summaryPanel').classList.add('on');
+  setStatus('on','READY'); sbSet('ready','READY'); sbAct('🔍',`${allFiles.length} files ready`,true);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AI Core (Strict Librarian)
+// ══════════════════════════════════════════════════════════════════════════════
+function buf2b64(buf) {
+  let o='', b=new Uint8Array(buf);
+  for(let i=0; i<b.length; i+=8192) o+=String.fromCharCode(...b.slice(i, i+8192));
+  return btoa(o);
+}
+
+async function classifyFile(file) {
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  const provider = document.getElementById('aiProvider').value;
+  const isPro = document.getElementById('tierToggle').checked;
+  const rawCustom = document.getElementById('customCategories').value.trim();
+  const tempVal = parseFloat(document.getElementById('aiCreativity').value);
+  if (!apiKey) throw new Error('No API key');
+
+  // CLEANUP ROUTER CATEGORIES
+  let customArray = [];
+  if (rawCustom) {
+    customArray = rawCustom.split(',').map(s=>s.trim()).filter(s=>s.length>0);
+  }
+
+  const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+  let fileText = `Filename: ${file.name}\nExtension: ${ext ? '.'+ext : 'none'}\nSize: ${fmtSize(file.size)}`;
+  let isImage = false, isPDF = false, b64Data = null, mime = null;
+
+  const MAX_READ = isPro ? 4*1024*1024 : 1*1024*1024; 
+  try {
+    if (IMG_EXTS.has(ext) && file.size <= MAX_READ) {
+      isImage = true; mime = IMG_MIME[ext] || 'image/jpeg'; b64Data = buf2b64(await file.arrayBuffer());
+    } else if (ext === PDF_EXT && file.size <= MAX_READ) {
+      isPDF = true; mime = 'application/pdf'; b64Data = buf2b64(await file.arrayBuffer());
+    } else if (TEXT_EXTS.has(ext)) {
+      fileText += `\n\nContent Preview:\n${(await file.text()).slice(0, 1500)}`;
+    } else if (file.size > MAX_READ) {
+      fileText += `\n\n[Content too large to read. Categorize based entirely on filename.]`;
+    }
+  } catch(e) {}
+
+  // BEST GUESS MANDATE (Forbids "Unclassified")
+  let sys = `You are an expert file router. Analyze the file and return ONLY a short folder name (1-3 words, Title Case, no punctuation).
+CRITICAL RULE: You MUST make your best educated guess to categorize the file based on its name and extension. NEVER respond with "Unclassified", "Unknown", or "None". Force it into the most logical bucket.
+
+Examples: "Research Papers", "Invoices", "User Manuals", "Digital Art", "Source Code", "Spreadsheets".`;
+  
+  if (customArray.length > 0) {
+    sys += `\n\nCRITICAL: You MUST categorize the file into EXACTLY one of these categories: [${customArray.join(', ')}]. Pick the closest fit, even if imperfect. Do NOT invent new categories.`;
+  } else {
+    const mem = Array.from(aiCategoriesCreated);
+    if(mem.length > 0) sys += `\n\nMEMORY: You have already created: [${mem.join(', ')}]. You MUST reuse these existing categories if the file fits remotely well.`;
+  }
+
+  let url='', hdrs={}, body={};
+
+  // APPLIES CREATIVITY TOGGLE (TEMPERATURE) TO ALL CALLS
+  if (provider === 'anthropic') {
+    url = 'https://api.anthropic.com/v1/messages';
+    hdrs = {'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-ipc': 'true'};
+    let c = [];
+    if(isImage) c.push({type:'image', source:{type:'base64', media_type:mime, data:b64Data}});
+    else if(isPDF) c.push({type:'document', source:{type:'base64', media_type:mime, data:b64Data}});
+    c.push({type:'text', text: fileText});
+    body = {model: 'claude-haiku-4-5-20251001', max_tokens: 20, temperature: tempVal, system: sys, messages: [{role:'user', content: c}]};
+  } 
+  else if (provider === 'openai') {
+    url = 'https://api.openai.com/v1/chat/completions';
+    hdrs = {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`};
+    let c = [];
+    if(isImage) c.push({type:'image_url', image_url: {url: `data:${mime};base64,${b64Data}`}});
+    c.push({type:'text', text: fileText});
+    body = {model: 'gpt-4o-mini', max_tokens: 20, temperature: tempVal, messages: [{role: 'system', content: sys}, {role: 'user', content: c}]};
+  } 
+  else if (provider === 'google') {
+    url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    hdrs = {'Content-Type': 'application/json'};
+    let p = [];
+    if(isImage||isPDF) p.push({inlineData: {mimeType: mime, data: b64Data}});
+    p.push({text: fileText});
+    body = {systemInstruction: {parts:[{text: sys}]}, contents: [{role: 'user', parts: p}], generationConfig: {maxOutputTokens: 20, temperature: tempVal}};
+  }
+
+  let resp, retries=5, delay=10000; 
+  while (retries >= 0) {
+    resp = await fetch(url, {method: 'POST', headers: hdrs, body: JSON.stringify(body)});
+    if (resp.status === 429 && retries > 0) {
+      retries--; log('warn', `Rate Limited... Retrying ${file.name} in ${delay/1000}s`);
+      await new Promise(r=>setTimeout(r, delay)); delay*=2; continue;
+    }
+    break; 
+  }
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(()=>({})); throw new Error(err.error?.message || `HTTP ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  let raw = '';
+  if (provider === 'anthropic') raw = data.content?.[0]?.text || '';
+  else if (provider === 'openai') raw = data.choices?.[0]?.message?.content || '';
+  else if (provider === 'google') raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+  // CLEANUP AND STANDARDIZE RESULT
+  let cat = raw.replace(/[<>:"/\\|?*\x00-\x1f]/g,'').replace(/\n/g,' ').replace(/\s+/g,' ').trim().slice(0,50);
+  
+  // THE HALLUCINATION CATCHER
+  if (customArray.length > 0) {
+    // Look for a loose match (e.g. AI says "Invoices" but user typed "Invoice")
+    const match = customArray.find(c => c.toLowerCase() === cat.toLowerCase() || cat.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(cat.toLowerCase()));
+    cat = match ? match : customArray[0]; // If AI hallucinates, force into the first custom category
+  } else {
+    cat = cat || 'Miscellaneous'; // If the AI breaks entirely without custom cats, put in Miscellaneous
+  }
+
+  // Catch absolute edge cases
+  if (cat.toLowerCase() === 'unclassified' || cat.toLowerCase() === 'unknown' || cat.toLowerCase() === 'none') {
+    cat = customArray.length > 0 ? customArray[0] : 'Miscellaneous';
+  }
+
+  aiCategoriesCreated.add(cat);
+  return cat;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Concurrency & File System Helpers
+// ══════════════════════════════════════════════════════════════════════════════
+async function processBatch(items, limit, processFn) {
+  const executing = new Set();
+  for (const item of items) {
+    const p = processFn(item).finally(() => executing.delete(p));
+    executing.add(p);
+    if (executing.size >= limit) {
+      await Promise.race(executing);
+    }
+  }
+  await Promise.all(executing);
+}
+
+const activeWrites = new Set();
+
+async function safeWrite(dir, file) {
+  let target = file.name, att = 0;
+  while (att < 50) {
+    if (activeWrites.has(target)) { att++; const d = file.name.lastIndexOf('.'); target = d > 0 ? file.name.slice(0,d)+`_(${att})`+file.name.slice(d) : file.name+`_(${att})`; continue; }
+    try { await dir.getFileHandle(target); att++; const d = file.name.lastIndexOf('.'); target = d > 0 ? file.name.slice(0,d)+`_(${att})`+file.name.slice(d) : file.name+`_(${att})`; } 
+    catch (e) {
+      if (e.name === 'NotFoundError') {
+        activeWrites.add(target);
+        try {
+          const fh = await dir.getFileHandle(target, { create:true });
+          const ws = await fh.createWritable();
+          await file.stream().pipeTo(ws); 
+          activeWrites.delete(target);
+          return target;
+        } catch (writeErr) { activeWrites.delete(target); throw writeErr; }
+      }
+      throw e;
+    }
+  }
+  throw new Error("Max rename attempts reached.");
+}
+
+async function getOrCreateDir(parent, name) {
+  try { return await parent.getDirectoryHandle(name, {create:true}); } 
+  catch(e) { return await parent.getDirectoryHandle(name); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Main Segregation Engine
+// ══════════════════════════════════════════════════════════════════════════════
+async function startSegregate() {
+  if (!destHandle) { alert('Please select destination folder.'); return; }
+  const aiOn = document.getElementById('aiToggle').checked;
+  const isPro = document.getElementById('tierToggle').checked;
+  const prov = document.getElementById('aiProvider').value;
+  if (aiOn && !document.getElementById('apiKeyInput').value.trim()) { alert('API key required.'); return; }
+
+  document.getElementById('goBtn').disabled = true;
+  document.getElementById('logPanel').classList.add('on');
+  document.getElementById('doneBanner').classList.remove('on');
+  document.getElementById('logOut').innerHTML = '';
+
+  aiCategoriesCreated.clear(); notifiedThresholds.clear(); sessionLogReport = [];
+  sessionLogReport.push(`FILE SEGREGATOR AI - REPORT\nDate: ${new Date().toLocaleString()}\nMode: ${aiOn?`AI Enabled (${prov} ${isPro?'PRO':'FREE'})`:'Extension Only'}\nTarget: ${destHandle.name}\n${'-'.repeat(50)}\n`);
+
+  setStatus('on', 'PROCESSING'); sbSet('copy', 'PROCESSING'); sbStartTimer();
+  document.getElementById('badge1').classList.add('active');
+  const pb = document.getElementById('pb'); pb.className = 'pb copy-pb';
+
+  const extDirCache = {}, subDirCache = {};
+  let done=0, errors=0, aiCalls=0;
+
+  // CALCULATE DYNAMIC DELAY BASED ON LIMITS
+  const limitObj = API_LIMITS[prov][isPro ? 'pro' : 'free'];
+  const requiredDelayMs = isPro ? 0 : Math.ceil((60 / limitObj.rpm) * 1000); 
+
+  log('info', `Mode: ${aiOn ? prov.toUpperCase() : 'EXTENSIONS'} | Throttle: ${requiredDelayMs}ms`);
+
+  const processSingleFile = async (f) => {
+    const ext = getCat(f.name); 
+    const fName = ext === 'NO_EXTENSION' ? 'NO_EXTENSION' : ext;
+
+    let extDir = extDirCache[fName];
+    if (!extDir) {
+      try { extDir = await getOrCreateDir(destHandle, fName); extDirCache[fName] = extDir; } 
+      catch(e) { errors++; log('err', `Error creating ${fName}/`); return; }
+    }
+
+    let subcat = null;
+    if (aiOn) {
+      sbSet('classify','AI CLASSIFY'); sbAct('🤖', `Analyzing ${f.name}`, true);
+      try {
+        subcat = await classifyFile(f);
+        aiCalls++; document.getElementById('sbAiCalls').textContent = aiCalls;
+        
+        // Quota Tracker
+        const pctUsed = (aiCalls / limitObj.rpd) * 100;
+        for (let th of ALERT_THRESHOLDS) {
+          if (pctUsed >= th && !notifiedThresholds.has(th)) {
+            notifiedThresholds.add(th); showToast(`Used <strong>${th}%</strong> of daily limit (${aiCalls}/${limitObj.rpd}).`);
+          }
+        }
+      } catch(e) { subcat = 'Miscellaneous'; log('warn', `AI Failed: ${e.message} → Defaulted to Miscellaneous`); }
+
+      const cKey = `${fName}/${subcat}`;
+      if (!subDirCache[cKey]) {
+        try { subDirCache[cKey] = await getOrCreateDir(extDir, subcat); } 
+        catch(e) { subcat = 'Miscellaneous'; subDirCache[cKey] = await getOrCreateDir(extDir, 'Miscellaneous'); }
+      }
+      
+      // APPLY DYNAMIC THROTTLE
+      if (requiredDelayMs > 0) await new Promise(r => setTimeout(r, requiredDelayMs));
+    }
+
+    const tDir = aiOn ? subDirCache[`${fName}/${subcat}`] : extDir;
+    sbSet(aiOn?'classify':'copy', 'WRITING');
+    
+    try {
+      const written = await safeWrite(tDir, f);
+      done++;
+      pb.style.width = document.getElementById('ppct').textContent = Math.round((done/allFiles.length)*100)+'%';
+      
+      const outPath = aiOn ? `/${fName}/${subcat}/${written}` : `/${fName}/${written}`;
+      log('ok', outPath);
+      sessionLogReport.push(`[OK] ${f.webkitRelativePath}  -->  ${outPath}`);
+      sbUpdate(done, allFiles.length, errors);
+    } catch(e) {
+      errors++; log('err', `Failed to write ${f.name}`);
+      sessionLogReport.push(`[ERROR] ${f.webkitRelativePath}  -->  ${e.message}`);
+      sbUpdate(done, allFiles.length, errors);
+    }
+  };
+
+  // DYNAMIC CONCURRENCY (Pro = 5, Free = 1, Offline = 25)
+  const CONCURRENCY = aiOn ? (isPro ? 5 : 1) : 25; 
+  await processBatch(allFiles, CONCURRENCY, processSingleFile);
+
+  // GENERATE README REPORT
+  try {
+    sessionLogReport.push(`\n${'-'.repeat(50)}\nSUMMARY:\nTotal Processed: ${done}\nAI Calls: ${aiCalls}\nErrors: ${errors}\nCategories Created: ${Array.from(aiCategoriesCreated).join(', ') || 'None'}`);
+    const rpt = await destHandle.getFileHandle('Segregation_Report.txt', {create:true});
+    const ws = await rpt.createWritable();
+    await ws.write(sessionLogReport.join('\n'));
+    await ws.close();
+    log('info', '📄 Generated Segregation_Report.txt in destination folder.');
+  } catch(e) { log('warn', 'Failed to write Segregation_Report.txt'); }
+
+  document.getElementById('badge2').classList.add('active');
+  const banner = errors ? `⚠ DONE — ${done} copied, ${errors} failed` : `✓ COMPLETE — ${done} files written`;
+  document.getElementById('doneBanner').textContent = banner;
+  document.getElementById('doneBanner').classList.add('on');
+  setStatus('on', errors ? 'ERRORS' : 'COMPLETE'); sbStopTimer(); sbSet('done', 'COMPLETE'); sbAct('✓', 'Done', false);
+  document.getElementById('goBtn').disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Helpers
+// ══════════════════════════════════════════════════════════════════════════════
+function fmtSize(b){ if(b<1024)return b+' B'; if(b<1048576)return (b/1024).toFixed(1)+' KB'; if(b<1073741824)return (b/1048576).toFixed(1)+' MB'; return (b/1073741824).toFixed(2)+' GB'; }
+function log(t, m) { const o=document.getElementById('logOut'), d=document.createElement('div'); d.className='lline'; d.innerHTML=`<span class="ltime">[${new Date().toTimeString().slice(0,8)}]</span><span class="l${t==='lai'?'lai':t}">${{ok:'✓',err:'✗',info:'·',warn:'⚠',lai:'🤖'}[t]||'·'}</span><span class="lmsg">${esc(m)}</span>`; o.appendChild(d); o.scrollTop=o.scrollHeight; }
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function setStatus(c,t){ document.getElementById('sdot').className='sdot'+(c?' '+c:''); document.getElementById('stxt').textContent=t; }
+function sbSet(s, l) { document.getElementById('sbDot').className=`sb-dot ${s}`; document.getElementById('sbLabel').className=`sb-plabel ${s}`; document.getElementById('sbLabel').textContent=l; }
+function sbAct(i, t, a) { document.getElementById('sbIcon').textContent=i; document.getElementById('sbText').textContent=t; document.getElementById('sbText').className='sb-act-text'+(a?' active':''); }
+function sbUpdate(d, t, e) { _sbDone=d; _sbTotal=t; _sbErrors=e; document.getElementById('sbFiles').textContent=t?`${d} / ${t}`:'—'; document.getElementById('sbProg').textContent=t?`${Math.round((d/t)*100)}%`:'—'; document.getElementById('sbErrors').textContent=e; document.getElementById('sbErrors').className=`sb-val${e>0?' warn':''}`; }
+function sbStartTimer() { _sbStart=Date.now(); if(_sbTimer)clearInterval(_sbTimer); _sbTimer=setInterval(()=>{ const s=Math.floor((Date.now()-_sbStart)/1000); document.getElementById('sbElapsed').textContent=`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; document.getElementById('sbSpeed').textContent=s>0?`${(_sbDone/s).toFixed(1)} f/s`:'0.0 f/s'; },1000); }
+function sbStopTimer(){if(_sbTimer){clearInterval(_sbTimer);_sbTimer=null;}}
+function resetAll() { allFiles=[]; destHandle=null; document.getElementById('srcInput').value=''; document.getElementById('srcLabel').textContent='Click to select source folder'; document.getElementById('srcBox').classList.remove('src-set'); document.getElementById('destLabel').textContent='Click to select destination folder'; document.getElementById('destBox').classList.remove('dest-set'); document.getElementById('scanBtn').disabled=true; document.getElementById('summaryPanel').classList.remove('on'); document.getElementById('logPanel').classList.remove('on'); document.getElementById('doneBanner').classList.remove('on'); document.getElementById('pb').style.width='0%'; document.getElementById('ppct').textContent='0%'; document.getElementById('badge1').classList.remove('active'); document.getElementById('badge2').classList.remove('active'); document.getElementById('goBtn').disabled=false; setStatus('','IDLE'); sbStopTimer(); _sbStart=_sbDone=_sbTotal=_sbErrors=0; sbSet('idle','IDLE'); sbAct('—','No operation in progress',false); ['sbFiles','sbProg','sbSpeed','sbElapsed'].forEach(id=>document.getElementById(id).textContent='—'); document.getElementById('sbErrors').textContent='0'; document.getElementById('sbErrors').className='sb-val'; document.getElementById('sbAiCalls').textContent='—'; }
+
+// Init
+updateQuotaInfo();
+</script>
+</body>
+</html>
