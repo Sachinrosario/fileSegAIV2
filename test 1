@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FILE SEGREGATOR AI - MASTER</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+
+<!-- ══ PROPER DOCUMENT PARSERS (CDN) ════════════════════════════════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  :root {
+    --bg:#0a0c0f; --surface:#0f1318; --panel:#131820; --border:#1e2a38;
+    --accent:#00d4ff; --accent2:#ff6b35; --accent3:#39ff14;
+    --warn:#ffd700; --ai:#b06aff; --text:#c8d8e8; --muted:#4a5a6a;
+    --mono:'Share Tech Mono',monospace; --display:'Barlow Condensed',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;min-height:100vh;overflow-x:hidden;padding-bottom:36px;}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,.012) 2px,rgba(0,212,255,.012) 4px);pointer-events:none;z-index:1000;}
+  .header{padding:14px 28px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-end;gap:20px;background:linear-gradient(180deg,#0d1520 0%,var(--bg) 100%);}
+  .logo{font-family:var(--display);font-size:36px;font-weight:900;letter-spacing:6px;color:var(--accent);text-shadow:0 0 30px rgba(0,212,255,.4);line-height:1;}
+  .logo span{color:var(--accent2);}
+  .logo sup{font-size:14px;letter-spacing:2px;color:var(--ai);text-shadow:0 0 12px var(--ai);vertical-align:super;}
+  .tagline{font-family:var(--display);font-size:12px;font-weight:300;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-bottom:3px;}
+  .hstatus{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--muted);}
+  .sdot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+  .sdot.on{background:var(--accent3);box-shadow:0 0 8px var(--accent3);animation:blink 1.5s infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* Parser status bar */
+  .parser-bar{background:#060a0d;border-bottom:1px solid var(--border);padding:6px 22px;display:flex;align-items:center;gap:16px;font-size:10px;flex-wrap:wrap;}
+  .pbar-label{color:var(--muted);letter-spacing:2px;text-transform:uppercase;flex-shrink:0;font-family:var(--display);font-weight:700;}
+  .plib{display:flex;align-items:center;gap:6px;padding:2px 10px;border:1px solid var(--border);}
+  .plib-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .plib-dot.loading{background:var(--warn);animation:blink .8s infinite;}
+  .plib-dot.ok{background:var(--accent3);box-shadow:0 0 5px var(--accent3);}
+  .plib-dot.err{background:#ff4444;}
+  .plib-name{font-size:10px;}
+  .plib-name.ok{color:var(--accent3);}
+  .plib-name.err{color:#ff4444;}
+  .plib-name.loading{color:var(--warn);}
+
+  .wrap{display:flex;flex-direction:column;gap:1px;background:var(--border);}
+  .prow{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);}
+  .panel{background:var(--surface);padding:18px 22px;}
+  .plabel{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .plabel::after{content:'';flex:1;height:1px;background:var(--border);}
+  .plabel.ai-label{color:var(--ai);}
+  .plabel.ai-label::after{background:rgba(176,106,255,.3);}
+  input[type=file]{display:none;}
+  .fbox{background:var(--panel);border:1px solid var(--border);padding:9px 13px;font-family:var(--mono);font-size:11px;color:var(--muted);min-height:36px;display:flex;align-items:center;gap:8px;word-break:break-all;cursor:pointer;transition:.2s;margin-bottom:8px;}
+  .fbox:hover{border-color:var(--accent);}
+  .fbox.src-set{color:var(--text);border-color:var(--accent);}
+  .fbox.dest-set{color:var(--text);border-color:var(--accent2);}
+  .api-input{background:var(--panel);border:1px solid var(--border);padding:9px 13px;font-family:var(--mono);font-size:12px;color:var(--text);width:100%;outline:none;transition:.2s;letter-spacing:2px;}
+  .api-input:focus{border-color:var(--ai);box-shadow:0 0 0 1px var(--ai);}
+  .api-input::placeholder{color:var(--muted);letter-spacing:0;}
+  select.api-input{appearance:none;cursor:pointer;}
+  .hint{font-size:10px;color:var(--muted);margin-top:6px;display:flex;gap:6px;}
+  .hint span:first-child{color:var(--accent);}
+  .btn{padding:9px 18px;border:none;cursor:pointer;font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;transition:.15s;}
+  .btn-src{border:1px solid var(--accent);color:var(--accent);background:transparent;}
+  .btn-src:hover{background:var(--accent);color:var(--bg);box-shadow:0 0 20px rgba(0,212,255,.4);}
+  .btn-dest{border:1px solid var(--accent2);color:var(--accent2);background:transparent;}
+  .btn-dest:hover{background:var(--accent2);color:var(--bg);box-shadow:0 0 20px rgba(255,107,53,.4);}
+  .btn-scan{border:1px solid var(--accent3);color:var(--accent3);background:transparent;margin-top:8px;}
+  .btn-scan:hover:not(:disabled){background:rgba(57,255,20,.1);}
+  .btn-scan:disabled{opacity:.35;cursor:not-allowed;}
+  .btn-go{background:var(--accent3);color:var(--bg);border:none;font-size:15px;padding:12px 32px;box-shadow:0 0 20px rgba(57,255,20,.35);}
+  .btn-go:hover:not(:disabled){box-shadow:0 0 40px rgba(57,255,20,.65);transform:translateY(-1px);}
+  .btn-go:disabled{background:var(--muted);box-shadow:none;cursor:not-allowed;transform:none;color:#333;}
+  .btn-reset{border:1px solid var(--muted);color:var(--muted);background:transparent;font-size:11px;padding:7px 14px;}
+  .btn-reset:hover{border-color:var(--text);color:var(--text);}
+  .note{background:rgba(255,215,0,.05);border-left:3px solid var(--warn);padding:7px 13px;font-size:11px;color:var(--warn);display:flex;gap:8px;line-height:1.4;}
+  .note.green{background:rgba(57,255,20,.05);border-color:var(--accent3);color:var(--accent3);}
+  .note.ai{background:rgba(176,106,255,.07);border-color:var(--ai);color:var(--ai);}
+  .ai-panel{background:var(--surface);padding:16px 22px;border-bottom:1px solid var(--border);}
+  .ai-row{display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;}
+  .ai-key-wrap{flex:2;min-width:320px;}
+  .ai-options-wrap{flex:2;min-width:380px;}
+  .ai-toggle-wrap{display:flex;align-items:center;gap:10px;white-space:nowrap;}
+  .toggle{position:relative;width:42px;height:22px;flex-shrink:0;}
+  .toggle input{opacity:0;width:0;height:0;}
+  .tslider{position:absolute;inset:0;background:var(--border);border-radius:11px;cursor:pointer;transition:.25s;}
+  .tslider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:var(--muted);border-radius:50%;transition:.25s;}
+  input:checked+.tslider{background:var(--ai);box-shadow:0 0 8px rgba(176,106,255,.5);}
+  input:checked+.tslider::before{transform:translateX(20px);background:#fff;}
+  .toggle-label{font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}
+  .toggle-label.on{color:var(--ai);}
+  .ai-model-badge{background:rgba(176,106,255,.1);border:1px solid rgba(176,106,255,.3);padding:3px 10px;font-size:10px;letter-spacing:2px;color:var(--ai);white-space:nowrap;}
+  .show-key-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;text-decoration:underline;font-family:var(--mono);}
+  .show-key-btn:hover{color:var(--text);}
+  .quota-box{background:#070a0d;border:1px solid var(--border);padding:8px 12px;font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5;}
+  .quota-box span{color:var(--text);}
+  .summary{background:var(--surface);padding:18px 22px;display:none;flex-direction:column;gap:14px;}
+  .summary.on{display:flex;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);}
+  .col-block{background:var(--panel);padding:14px 18px;}
+  .st-label{font-family:var(--display);font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;}
+  .st-val{font-family:var(--display);font-size:28px;font-weight:900;color:var(--accent);line-height:1;}
+  .st-val.d{color:var(--accent2);}
+  .st-row{display:flex;gap:24px;margin-top:8px;}
+  .cats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px;}
+  .ccard{background:var(--panel);border:1px solid var(--border);padding:9px 13px;display:flex;flex-direction:column;gap:3px;position:relative;overflow:hidden;}
+  .ccard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ext-color,var(--accent));}
+  .ccat{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:2px;color:var(--text);}
+  .cicon{font-size:16px;margin-bottom:1px;}
+  .ccount{font-family:var(--display);font-size:22px;font-weight:900;color:var(--accent);line-height:1;}
+  .csize{font-size:10px;color:var(--muted);}
+  .flist-wrap{background:var(--panel);border:1px solid var(--border);max-height:150px;overflow-y:auto;}
+  .flist-wrap::-webkit-scrollbar{width:4px;}
+  .flist-wrap::-webkit-scrollbar-thumb{background:var(--muted);}
+  .frow{display:flex;gap:10px;padding:5px 12px;border-bottom:1px solid rgba(30,42,56,.5);font-size:11px;align-items:center;}
+  .frow:last-child{border-bottom:none;}
+  .fname{color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .fsize{color:var(--muted);flex-shrink:0;min-width:60px;text-align:right;}
+  .fcat{flex-shrink:0;font-size:10px;padding:1px 6px;background:var(--border);color:var(--muted);}
+  .actions{display:flex;align-items:center;gap:12px;padding-top:12px;border-top:1px solid var(--border);}
+  .ainfo{color:var(--muted);font-size:11px;margin-left:auto;}
+  .logpanel{background:var(--surface);display:none;flex-direction:column;}
+  .logpanel.on{display:flex;}
+  .loghdr{padding:9px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--panel);flex-wrap:wrap;}
+  .logtitle{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:4px;color:var(--muted);text-transform:uppercase;}
+  .phase-badges{display:flex;gap:6px;}
+  .phase-badge{font-family:var(--display);font-size:10px;font-weight:700;letter-spacing:2px;padding:2px 8px;text-transform:uppercase;opacity:.4;transition:.3s;}
+  .phase-badge.active{opacity:1;}
+  .phase-badge.p1{border:1px solid var(--accent);color:var(--accent);}
+  .phase-badge.p1.active{background:rgba(0,212,255,.1);}
+  .phase-badge.p2{border:1px solid var(--ai);color:var(--ai);}
+  .phase-badge.p2.active{background:rgba(176,106,255,.1);}
+  .pbwrap{flex:1;height:4px;background:var(--border);overflow:hidden;min-width:80px;}
+  .pb{height:100%;width:0%;transition:width .3s;background:linear-gradient(90deg,var(--accent3),var(--accent));}
+  .ppct{font-size:11px;color:var(--accent3);min-width:36px;text-align:right;}
+  .log-tree-wrap{display:grid;grid-template-columns:1fr 320px;gap:1px;background:var(--border);}
+  .logout{overflow-y:auto;padding:12px 22px;font-size:11px;line-height:1.8;background:#070a0d;max-height:300px;}
+  .logout::-webkit-scrollbar{width:4px;}
+  .logout::-webkit-scrollbar-thumb{background:var(--muted);}
+  .lline{display:flex;gap:10px;align-items:baseline;}
+  .ltime{color:var(--muted);flex-shrink:0;}
+  .lok{color:var(--accent3);}  .lerr{color:#ff4444;}  .linfo{color:var(--accent);}
+  .lwarn{color:var(--warn);}   .lai{color:var(--ai);}  .lmerge{color:var(--accent2);}
+  .lmsg{color:var(--text);}
+  .tree-panel{background:#070a0d;overflow-y:auto;max-height:300px;padding:12px 14px;}
+  .tree-panel::-webkit-scrollbar{width:4px;}
+  .tree-panel::-webkit-scrollbar-thumb{background:var(--muted);}
+  .tree-hdr{font-family:var(--display);font-size:10px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .tree-hdr::after{content:'';flex:1;height:1px;background:var(--border);}
+  .tree-node{font-size:11px;line-height:1.7;font-family:var(--mono);}
+  .tree-ext{color:var(--accent);font-weight:bold;}
+  .tree-sub{color:var(--ai);padding-left:16px;}
+  .tree-sub::before{content:'└─ ';color:var(--muted);}
+  .tree-count{color:var(--muted);font-size:10px;margin-left:5px;}
+  .done-banner{display:none;background:rgba(57,255,20,.08);border:1px solid var(--accent3);padding:10px 22px;text-align:center;font-family:var(--display);font-size:15px;font-weight:700;letter-spacing:4px;color:var(--accent3);}
+  .done-banner.on{display:block;}
+  .statusbar{position:fixed;bottom:0;left:0;right:0;height:32px;background:#080b0f;border-top:1px solid var(--border);display:flex;align-items:center;font-size:11px;font-family:var(--mono);z-index:500;overflow:hidden;}
+  .sb-seg{display:flex;align-items:center;gap:7px;padding:0 14px;height:100%;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0;}
+  .sb-label{color:var(--muted);letter-spacing:2px;font-size:10px;text-transform:uppercase;}
+  .sb-val{color:var(--text);}
+  .sb-val.accent{color:var(--accent);} .sb-val.accent2{color:var(--accent2);}
+  .sb-val.green{color:var(--accent3);} .sb-val.warn{color:var(--warn);} .sb-val.ai{color:var(--ai);}
+  .sb-phase{display:flex;align-items:center;gap:7px;padding:0 14px;height:100%;border-right:1px solid var(--border);}
+  .sb-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s;}
+  .sb-dot.idle{background:var(--muted);}
+  .sb-dot.loading{background:var(--accent);box-shadow:0 0 6px var(--accent);animation:blink 1s infinite;}
+  .sb-dot.ready{background:var(--warn);box-shadow:0 0 6px var(--warn);}
+  .sb-dot.copy,.sb-dot.classify,.sb-dot.done{background:var(--accent3);box-shadow:0 0 6px var(--accent3);}
+  .sb-dot.classify{background:var(--ai);box-shadow:0 0 6px var(--ai);animation:blink .6s infinite;}
+  .sb-plabel{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}
+  .sb-plabel.ready{color:var(--warn);} .sb-plabel.copy,.sb-plabel.done{color:var(--accent3);}
+  .sb-plabel.classify{color:var(--ai);}
+  .sb-activity{flex:1;padding:0 14px;height:100%;display:flex;align-items:center;gap:8px;overflow:hidden;min-width:0;border-right:1px solid var(--border);}
+  .sb-act-icon{font-size:12px;flex-shrink:0;}
+  .sb-act-text{color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sb-act-text.active{color:var(--text);}
+  #toast-container{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none;}
+  .toast{background:var(--surface);border-left:4px solid var(--warn);color:var(--text);padding:12px 20px;box-shadow:0 4px 20px rgba(0,0,0,.5);animation:slideIn .3s ease-out;font-family:var(--mono);font-size:12px;line-height:1.5;pointer-events:auto;}
+  .toast strong{color:var(--warn);display:block;margin-bottom:4px;font-family:var(--display);letter-spacing:2px;font-size:14px;text-transform:uppercase;}
+  .toast.merge{border-left-color:var(--accent2);}  .toast.merge strong{color:var(--accent2);}
+  @keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+</style>
+</head>
+<body>
+<div id="toast-container"></div>
+
+<header class="header">
+  <div>
+    <div class="logo">FILE<span>SEG</span> <sup>MASTER</sup></div>
+    <div class="tagline">Enterprise AI Segregation · Real Document Parsing · Smart Dedup</div>
+  </div>
+  <div class="hstatus"><div class="sdot" id="sdot"></div><span id="stxt">IDLE</span></div>
+</header>
+
+<!-- Parser status row -->
+<div class="parser-bar">
+  <span class="pbar-label">Parsers</span>
+  <div class="plib">
+    <div class="plib-dot loading" id="dot-pdf"></div>
+    <span class="plib-name loading" id="lbl-pdf">PDF.js — loading…</span>
+  </div>
+  <div class="plib">
+    <div class="plib-dot loading" id="dot-docx"></div>
+    <span class="plib-name loading" id="lbl-docx">mammoth.js — loading…</span>
+  </div>
+  <div class="plib">
+    <div class="plib-dot loading" id="dot-xlsx"></div>
+    <span class="plib-name loading" id="lbl-xlsx">SheetJS — loading…</span>
+  </div>
+  <span style="color:var(--muted);font-size:10px;margin-left:auto;">Requires internet · CDN: cdnjs.cloudflare.com</span>
+</div>
+
+<div class="wrap">
+  <div class="prow">
+    <div class="panel">
+      <div class="plabel">01 · Source Folder</div>
+      <div class="fbox" id="srcBox" onclick="document.getElementById('srcInput').click()"><span>📂</span><span id="srcLabel">Click to select source folder</span></div>
+      <input type="file" id="srcInput" webkitdirectory multiple onchange="onSrcChange(this)">
+      <button class="btn btn-src" onclick="document.getElementById('srcInput').click()">▶ SELECT SOURCE FOLDER</button>
+      <div class="hint"><span>ℹ</span><span>Recursively scanned. Source files are NEVER deleted.</span></div>
+    </div>
+    <div class="panel">
+      <div class="plabel">02 · Destination Folder</div>
+      <div class="fbox" id="destBox" onclick="pickDest()"><span>📁</span><span id="destLabel">Click to select destination folder</span></div>
+      <button class="btn btn-dest" onclick="pickDest()">▶ SELECT DESTINATION FOLDER</button>
+      <div class="hint"><span>ℹ</span><span>Generates Segregation_Report.txt upon completion.</span></div>
+      <div style="margin-top:10px" class="note green"><span>✓</span><span>Files <strong>never deleted</strong> — copy only · Structure: DEST / [EXT] / [AI Category] / file</span></div>
+    </div>
+  </div>
+
+  <div class="ai-panel">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
+      <div class="plabel ai-label" style="margin-bottom:0;flex-shrink:0;">03 · AI Classification</div>
+      <div class="ai-toggle-wrap">
+        <label class="toggle"><input type="checkbox" id="aiToggle" onchange="onAiToggle()" checked><span class="tslider"></span></label>
+        <span class="toggle-label on" id="toggleLabel">ENABLED</span>
+      </div>
+      <div class="ai-model-badge" id="modelBadge">gemini-2.5-flash</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);">
+        <div id="apiDot" style="width:6px;height:6px;border-radius:50%;background:var(--muted);"></div>
+        <span id="apiStatusText">No key entered</span>
+      </div>
+    </div>
+    <div class="ai-row">
+      <div class="ai-key-wrap">
+        <div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-end;flex-wrap:wrap;">
+          <div style="flex:1;min-width:120px;">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;">PROVIDER</div>
+            <select class="api-input" id="aiProvider" onchange="updateQuotaInfo()" style="padding:7px 10px;">
+              <option value="google">Google (Gemini)</option>
+              <option value="openai">OpenAI (GPT-4o-mini)</option>
+              <option value="anthropic">Anthropic (Claude)</option>
+            </select>
+          </div>
+          <div style="flex:0;min-width:90px;">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;">PLAN TIER</div>
+            <div class="ai-toggle-wrap" style="height:31px;background:var(--panel);border:1px solid var(--border);padding:0 8px;display:inline-flex;">
+              <label class="toggle" style="transform:scale(0.85);margin-right:4px;"><input type="checkbox" id="tierToggle" onchange="updateQuotaInfo()"><span class="tslider"></span></label>
+              <span class="toggle-label" id="tierLabel" style="font-size:11px;">FREE</span>
+            </div>
+          </div>
+          <div style="flex:2;min-width:200px;">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;">API KEY</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input class="api-input" type="password" id="apiKeyInput" placeholder="AIza..." oninput="onApiKeyChange()" autocomplete="off">
+              <button class="show-key-btn" onclick="toggleKeyVis()" id="showKeyBtn">show</button>
+            </div>
+          </div>
+        </div>
+        <div class="quota-box">
+          Throttle: <span id="qSpeed">15 req/min</span> &nbsp;|&nbsp; Daily: <span id="qDaily">1,500 req/day</span><br>
+          <i style="color:var(--muted);font-size:9px;">Delays auto-enforced · Full file content parsed before each AI decision</i>
+        </div>
+      </div>
+      <div class="ai-options-wrap">
+        <div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-end;flex-wrap:wrap;">
+          <div style="flex:1.5;">
+            <div style="font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:5px;font-weight:bold;">ROUTER MODE — FORCE CATEGORIES (OPTIONAL)</div>
+            <input class="api-input" type="text" id="customCategories" placeholder="e.g. Invoices, UUCMS, Reports">
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;">CREATIVITY</div>
+            <select class="api-input" id="aiCreativity" style="padding:7px 10px;">
+              <option value="0.1" selected>LOW (0.1) — Strict</option>
+              <option value="0.5">MED (0.5) — Balanced</option>
+              <option value="1.0">HIGH (1.0) — Creative</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;">SIMILARITY THRESHOLD (FOLDER DEDUP)</div>
+          <select class="api-input" id="simThreshold" style="padding:7px 10px;">
+            <option value="0.4">STRICT (40%) — fewer folders</option>
+            <option value="0.55" selected>BALANCED (55%) — recommended</option>
+            <option value="0.7">RELAXED (70%) — more folders</option>
+          </select>
+        </div>
+        <div class="note ai" style="font-size:10px;">
+          <span>🔬</span>
+          <span><strong>Real parsers, not byte scanning:</strong>
+          PDF → PDF.js (every word, every page, reading order preserved) ·
+          DOCX → mammoth.js (all paragraphs + tables, zero XML noise) ·
+          XLSX/XLS → SheetJS (every cell value, all sheets) ·
+          CSV → headers + rows · Large files → start+middle+end sampling</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="padding:12px 22px;display:flex;align-items:center;gap:14px;">
+    <button class="btn btn-scan" id="scanBtn" onclick="buildSummary()" disabled>🔍 SCAN &amp; PREVIEW</button>
+    <span id="scanHint" style="color:var(--muted);font-size:11px;">Select source &amp; destination folders first</span>
+  </div>
+
+  <div class="summary" id="summaryPanel">
+    <div class="plabel">04 · Pre-Segregation Summary</div>
+    <div class="two-col">
+      <div class="col-block">
+        <div class="st-label">Source</div>
+        <div id="sumSrc" style="font-size:12px;color:var(--text);word-break:break-all;margin-bottom:8px;">—</div>
+        <div class="st-row">
+          <div><div class="st-label">FILES</div><div class="st-val" id="sumFiles">0</div></div>
+          <div><div class="st-label">SIZE</div><div class="st-val" id="sumSize">0 B</div></div>
+          <div><div class="st-label">EXT TYPES</div><div class="st-val" id="sumCats">0</div></div>
+        </div>
+      </div>
+      <div class="col-block">
+        <div class="st-label">Destination</div>
+        <div id="sumDest" style="font-size:12px;color:var(--accent2);word-break:break-all;margin-bottom:8px;">—</div>
+        <div class="st-row">
+          <div><div class="st-label">EXT FOLDERS</div><div class="st-val d" id="sumFolders">0</div></div>
+          <div><div class="st-label">TOTAL SIZE</div><div class="st-val d" id="sumZipSize">—</div></div>
+          <div><div class="st-label">AI MODE</div><div class="st-val" id="sumAiMode" style="font-size:16px;color:var(--ai);">ON</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="plabel" style="margin-top:4px">Extension Types Detected</div>
+    <div class="cats-grid" id="catGrid"></div>
+    <div class="plabel" style="margin-top:4px">All Files <span id="fcLabel" style="color:var(--accent);font-size:10px"></span></div>
+    <div class="flist-wrap" id="fileList"></div>
+    <div class="actions">
+      <button class="btn btn-go" id="goBtn" onclick="startSegregate()">⚡ START SEGREGATION</button>
+      <button class="btn btn-reset" onclick="resetAll()">↺ RESET</button>
+      <span class="ainfo" id="ainfo"></span>
+    </div>
+  </div>
+
+  <div class="logpanel" id="logPanel">
+    <div class="loghdr">
+      <div class="logtitle">⚡ Log</div>
+      <div class="phase-badges">
+        <div class="phase-badge p1" id="badge1">COPY</div>
+        <div class="phase-badge p2" id="badge2">AI CLASSIFY</div>
+      </div>
+      <div class="pbwrap" style="margin-left:12px;"><div class="pb" id="pb"></div></div>
+      <div class="ppct" id="ppct">0%</div>
+    </div>
+    <div class="done-banner" id="doneBanner"></div>
+    <div class="log-tree-wrap">
+      <div class="logout" id="logOut"></div>
+      <div class="tree-panel">
+        <div class="tree-hdr">📂 Live Tree</div>
+        <div id="treeOut"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="statusbar">
+  <div class="sb-phase"><div class="sb-dot idle" id="sbDot"></div><div class="sb-plabel idle" id="sbLabel">IDLE</div></div>
+  <div class="sb-activity"><span class="sb-act-icon" id="sbIcon">—</span><span class="sb-act-text" id="sbText">No operation in progress</span></div>
+  <div class="sb-seg"><span class="sb-label">FILES</span><span class="sb-val accent" id="sbFiles">—</span></div>
+  <div class="sb-seg"><span class="sb-label">PROGRESS</span><span class="sb-val green" id="sbProg">—</span></div>
+  <div class="sb-seg"><span class="sb-label">SPEED</span><span class="sb-val accent2" id="sbSpeed">—</span></div>
+  <div class="sb-seg"><span class="sb-label">ELAPSED</span><span class="sb-val" id="sbElapsed">—</span></div>
+  <div class="sb-seg"><span class="sb-label">MERGES</span><span class="sb-val warn" id="sbMerges">0</span></div>
+  <div class="sb-seg"><span class="sb-label">ERRORS</span><span class="sb-val" id="sbErrors">0</span></div>
+  <div class="sb-seg"><span class="sb-label">AI CALLS</span><span class="sb-val ai" id="sbAiCalls">—</span></div>
+  <div class="sb-seg" style="margin-left:auto;border-left:1px solid var(--border);border-right:none;">
+    <span class="sb-label">FILESEG</span><span class="sb-val" style="color:var(--muted)">MASTER</span>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ══════════════════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════════════════════════════════
+const API_LIMITS = {
+  google:    {free:{rpm:15,rpd:1500}, pro:{rpm:360,rpd:10000}},
+  openai:    {free:{rpm:3, rpd:200},  pro:{rpm:500,rpd:10000}},
+  anthropic: {free:{rpm:5, rpd:250},  pro:{rpm:50, rpd:10000}}
+};
+const IMG_EXTS = new Set(['jpg','jpeg','png','gif','webp','bmp','heic','heif','avif']);
+const IMG_MIME = {jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',
+                  webp:'image/webp',bmp:'image/bmp',heic:'image/heic',avif:'image/avif'};
+const TEXT_EXTS = new Set(['txt','md','rst','log','json','jsonl','xml','yaml','yml',
+  'toml','ini','cfg','env','html','htm','js','ts','jsx','tsx','py','java','c','h',
+  'cpp','cs','go','rb','php','sh','bash','sql','r','tex','srt','vtt','nfo',
+  'css','scss','vue','svelte','kt','dart','dockerfile','makefile','gitignore']);
+const EXT_META = {jpg:'🖼️',pdf:'📕',docx:'📝',xlsx:'📊',mp4:'🎬',mp3:'🎵',zip:'🗜️',py:'🐍',js:'📜',html:'🌐'};
+const STOP_WORDS = new Set(['the','a','an','of','for','to','in','on','and','or','by',
+  'with','from','files','file','docs','documents','document','folder','items','records']);
+const ALERT_THRESHOLDS = [25,50,75,90,95,99];
+
+// ── State ──
+let allFiles=[], destHandle=null;
+let _sbTimer=null, _sbStart=null, _sbDone=0, _sbTotal=0;
+let totalMerges=0, totalErrors=0;
+let subCatMemory={}, treeState={};
+let sessionLogReport=[], notifiedThresholds=new Set();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PARSER STATUS CHECK
+// ══════════════════════════════════════════════════════════════════════════════
+function checkParsers() {
+  const hasPDF  = typeof pdfjsLib  !== 'undefined';
+  const hasDOCX = typeof mammoth   !== 'undefined';
+  const hasXLSX = typeof XLSX      !== 'undefined';
+
+  function setPlib(id, ok, label) {
+    document.getElementById('dot-'+id).className = 'plib-dot ' + (ok?'ok':'err');
+    const n = document.getElementById('lbl-'+id);
+    n.className = 'plib-name ' + (ok?'ok':'err');
+    n.textContent = label;
+  }
+  setPlib('pdf',  hasPDF,  hasPDF  ? 'PDF.js ✓ — page-by-page text'    : 'PDF.js ✗ — offline? PDFs will use raw bytes');
+  setPlib('docx', hasDOCX, hasDOCX ? 'mammoth.js ✓ — paragraphs+tables' : 'mammoth.js ✗ — offline? DOCX limited');
+  setPlib('xlsx', hasXLSX, hasXLSX ? 'SheetJS ✓ — all cells+sheets'     : 'SheetJS ✗ — offline? XLSX limited');
+
+  if (hasPDF) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ████  PROPER CONTENT EXTRACTION ENGINE  ████
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Snap a char position outward to a clean word boundary (never cuts mid-word)
+function snapWord(text, pos, direction) {
+  if (pos <= 0) return 0;
+  if (pos >= text.length) return text.length;
+  if (direction === 'back') {
+    // Walk left until we hit whitespace or start
+    while (pos > 0 && !/\s/.test(text[pos])) pos--;
+    // Trim any trailing whitespace
+    while (pos > 0 && /\s/.test(text[pos - 1])) pos--;
+    return pos;
+  } else {
+    // Walk right until we hit whitespace or end
+    while (pos < text.length && !/\s/.test(text[pos])) pos++;
+    // Skip leading whitespace
+    while (pos < text.length && /\s/.test(text[pos])) pos++;
+    return pos;
+  }
+}
+
+// Front-weighted strategic sampling: 60% start + 28% middle + 12% end
+// Every slice snaps to word boundaries — no incomplete words ever.
+function strategicSample(text, maxChars) {
+  if (text.length <= maxChars) return text;
+
+  const sRaw = Math.floor(maxChars * 0.60);
+  const mRaw = Math.floor(maxChars * 0.28);
+  const eRaw = maxChars - sRaw - mRaw;
+
+  // ── Start slice: snap back to nearest word end ──
+  const sEnd = snapWord(text, sRaw, 'back');
+  const startChunk = text.slice(0, sEnd);
+
+  // ── Middle slice: begin and end both snapped ──
+  const mp     = Math.floor(text.length / 2);
+  const mStart = snapWord(text, mp, 'forward');
+  const mEnd   = snapWord(text, mStart + mRaw, 'back');
+  const midChunk = text.slice(mStart, mEnd);
+
+  // ── End slice: start from a clean word boundary ──
+  const eStart = snapWord(text, text.length - eRaw, 'forward');
+  const endChunk = text.slice(eStart);
+
+  return (
+    startChunk +
+    '\n\n[── MIDDLE SAMPLE ──]\n' + midChunk +
+    '\n\n[── END SAMPLE ──]\n' + endChunk +
+    `\n\n[${text.length.toLocaleString()} total chars → ${maxChars.toLocaleString()} sampled across 3 sections]`
+  );
+}
+
+function buf2b64(buf) {
+  let o=''; const b = new Uint8Array(buf);
+  for (let i=0; i<b.length; i+=8192) o += String.fromCharCode(...b.slice(i,i+8192));
+  return btoa(o);
+}
+
+// ── PDF: PDF.js — extracts actual text layer, page by page ──────────────────
+async function extractPDF(file, maxChars) {
+  if (typeof pdfjsLib === 'undefined') {
+    // Graceful fallback: send raw PDF bytes to API
+    const cap = Math.min(file.size, 3 * 1024 * 1024);
+    const b64 = buf2b64(await file.slice(0, cap).arrayBuffer());
+    return { contentBlock: '[PDF.js not loaded — sending raw PDF bytes to API]',
+             method: 'pdf-raw-fallback', isImage:false, isPDF:true, b64, mime:'application/pdf' };
+  }
+
+  const ab  = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  const total = pdf.numPages;
+
+  // Smart page selection: all pages if small, sampled if large
+  let pageNums;
+  if (total <= 20) {
+    pageNums = Array.from({length: total}, (_,i) => i+1);
+  } else {
+    const mid   = Math.floor(total / 2);
+    const front = Array.from({length: Math.min(10, total)}, (_,i) => i+1);
+    const centre= [mid-1, mid, mid+1].filter(n => n>=1 && n<=total);
+    const tail  = [total-2, total-1, total].filter(n => n>=1 && n<=total);
+    pageNums    = [...new Set([...front,...centre,...tail])].sort((a,b)=>a-b);
+  }
+
+  const pages = [];
+  for (const n of pageNums) {
+    const page    = await pdf.getPage(n);
+    const content = await page.getTextContent();
+    // Reconstruct reading order using Y position buckets
+    const buckets = {};
+    for (const item of content.items) {
+      const y = Math.round(item.transform[5] / 5) * 5; // 5px buckets
+      if (!buckets[y]) buckets[y] = [];
+      buckets[y].push(item.str);
+    }
+    const pageText = Object.keys(buckets)
+      .map(Number).sort((a,b) => b-a)  // descending y = top to bottom
+      .map(y => buckets[y].join(' '))
+      .join('\n').replace(/\n{3,}/g, '\n\n').trim();
+
+    if (pageText) pages.push(`[Page ${n} of ${total}]\n${pageText}`);
+  }
+
+  const full = pages.join('\n\n');
+  return {
+    contentBlock: full
+      ? strategicSample(full, maxChars)
+      : '[PDF parsed but no text layer found — likely a scanned image PDF]',
+    method: `PDF.js — ${pageNums.length}/${total} pages · ${full.length.toLocaleString()} chars extracted`,
+    isImage:false, isPDF:false, b64:null, mime:null
+  };
+}
+
+// ── DOCX: mammoth.js — clean paragraphs, zero XML noise ─────────────────────
+async function extractDOCX(file, maxChars) {
+  if (typeof mammoth === 'undefined') {
+    return { contentBlock: '[mammoth.js not loaded — DOCX content unavailable]',
+             method: 'docx-no-library', isImage:false, isPDF:false, b64:null, mime:null };
+  }
+  const ab     = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer: ab });
+  const text   = result.value || '';
+
+  return {
+    contentBlock: text
+      ? strategicSample(text, maxChars)
+      : '[DOCX parsed but document appears empty]',
+    method: `mammoth.js — ${text.length.toLocaleString()} chars · ${result.messages?.length||0} parse warnings`,
+    isImage:false, isPDF:false, b64:null, mime:null
+  };
+}
+
+// ── XLSX/XLS/ODS: SheetJS — every cell value, every sheet ───────────────────
+async function extractXLSX(file, maxChars) {
+  if (typeof XLSX === 'undefined') {
+    return { contentBlock: '[SheetJS not loaded — spreadsheet content unavailable]',
+             method: 'xlsx-no-library', isImage:false, isPDF:false, b64:null, mime:null };
+  }
+  const ab = await file.arrayBuffer();
+  const wb = XLSX.read(ab, { type:'array', cellText:true, cellDates:true });
+
+  const parts = [
+    `Spreadsheet: ${file.name}`,
+    `Sheets (${wb.SheetNames.length}): ${wb.SheetNames.join(', ')}`
+  ];
+
+  let totalRows = 0;
+  for (const name of wb.SheetNames.slice(0, 6)) {
+    const ws  = wb.Sheets[name];
+    const csv = XLSX.utils.sheet_to_csv(ws, { blankrows:false, skipHidden:true });
+    const rows = csv.split('\n')
+      .map(r => r.trim())
+      .filter(r => r && !/^,+$/.test(r)); // skip blank/all-comma rows
+    totalRows += rows.length;
+    const preview = rows.slice(0, 80);
+    parts.push(`\n[Sheet: "${name}" — ${rows.length} rows]\n${preview.join('\n')}`);
+    if (rows.length > 80) parts.push(`  … (${rows.length - 80} more rows not shown)`);
+  }
+
+  const full = parts.join('\n');
+  return {
+    contentBlock: strategicSample(full, maxChars),
+    method: `SheetJS — ${wb.SheetNames.length} sheets · ~${totalRows} data rows extracted`,
+    isImage:false, isPDF:false, b64:null, mime:null
+  };
+}
+
+// ── CSV: native parse — headers + structured rows ───────────────────────────
+async function extractCSV(file, maxChars) {
+  const raw   = await file.text();
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  const hdr   = lines[0] || '(no headers)';
+  const rows  = lines.slice(1, 61);
+  const text  = `CSV Dataset: ${file.name}\nColumns: ${hdr}\nTotal rows: ${lines.length-1}\n\nSample:\n${rows.join('\n')}`;
+  return {
+    contentBlock: strategicSample(text, maxChars),
+    method: `CSV native — ${hdr.split(',').length} columns · ${lines.length-1} rows`,
+    isImage:false, isPDF:false, b64:null, mime:null
+  };
+}
+
+// ── Plain text / code ────────────────────────────────────────────────────────
+async function extractText(file, maxChars) {
+  const raw = await file.text();
+  return {
+    contentBlock: strategicSample(raw, maxChars),
+    method: raw.length > maxChars
+      ? `text sampled — ${fmtSize(raw.length)} → ${maxChars.toLocaleString()} chars`
+      : `text full-read — ${fmtSize(raw.length)}`,
+    isImage:false, isPDF:false, b64:null, mime:null
+  };
+}
+
+// ── Images: base64 for visual analysis ──────────────────────────────────────
+async function extractImage(file, ext, isPro) {
+  const cap  = (isPro ? 8 : 3) * 1024 * 1024;
+  const mime = IMG_MIME[ext] || 'image/jpeg';
+  if (file.size <= cap) {
+    return {
+      contentBlock: `[Image — sent for direct visual analysis · ${fmtSize(file.size)}]`,
+      method: `image visual-analysis (${fmtSize(file.size)})`,
+      isImage:true, isPDF:false, b64: buf2b64(await file.arrayBuffer()), mime
+    };
+  }
+  return {
+    contentBlock: `[Image too large (${fmtSize(file.size)}) — classifying from filename]`,
+    method: 'image-too-large', isImage:false, isPDF:false, b64:null, mime:null
+  };
+}
+
+// ── Master dispatcher ────────────────────────────────────────────────────────
+async function extractFileContent(file, isPro) {
+  const maxChars = isPro ? 15000 : 8000;
+  const ext = (file.name.includes('.') ? file.name.split('.').pop() : '').toLowerCase();
+  try {
+    if (ext === 'pdf')                              return await extractPDF(file, maxChars);
+    if (['docx','doc','odt','rtf'].includes(ext))   return await extractDOCX(file, maxChars);
+    if (['xlsx','xls','xlsm','ods'].includes(ext))  return await extractXLSX(file, maxChars);
+    if (ext === 'csv')                              return await extractCSV(file, maxChars);
+    if (TEXT_EXTS.has(ext))                         return await extractText(file, maxChars);
+    if (IMG_EXTS.has(ext))                          return await extractImage(file, ext, isPro);
+    if (['pptx','ppt','odp'].includes(ext))
+      return { contentBlock:`[Presentation — ${fmtSize(file.size)} · classifying from filename]`,
+               method:'pptx-metadata-only', isImage:false, isPDF:false, b64:null, mime:null };
+    return { contentBlock:`[Binary .${ext} file — no text extraction available]`,
+             method:'unsupported-binary', isImage:false, isPDF:false, b64:null, mime:null };
+  } catch(e) {
+    return { contentBlock:`[Extraction error: ${e.message}]`,
+             method:`error`, isImage:false, isPDF:false, b64:null, mime:null };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FOLDER DEDUPLICATOR
+// ══════════════════════════════════════════════════════════════════════════════
+function tokenize(s) {
+  return s.toLowerCase().replace(/[_\-]/g,' ').split(/\s+/)
+          .filter(w => w.length>1 && !STOP_WORDS.has(w));
+}
+function jaccard(a, b) {
+  const ta=new Set(tokenize(a)), tb=new Set(tokenize(b));
+  if (!ta.size && !tb.size) return 1;
+  if (!ta.size || !tb.size) return 0;
+  let i=0; ta.forEach(w=>{ if(tb.has(w))i++; });
+  return i / (ta.size+tb.size-i);
+}
+function isAcronym(s) { return /^[A-Z]{2,8}(\s|$)/.test(s.trim()); }
+
+function resolveCategory(proposed, ext) {
+  if (!proposed) return 'Uncategorized Content';
+  const thr = parseFloat(document.getElementById('simThreshold').value);
+  if (!subCatMemory[ext]) subCatMemory[ext] = [];
+  const existing = subCatMemory[ext];
+
+  const exact = existing.find(e => e.name.toLowerCase()===proposed.toLowerCase());
+  if (exact) { exact.count++; return exact.name; }
+
+  if (isAcronym(proposed)) { existing.push({name:proposed,count:1}); return proposed; }
+
+  let best=null, bestScore=0;
+  for (const e of existing) {
+    if (isAcronym(e.name)) continue;
+    const s = jaccard(proposed, e.name);
+    if (s > bestScore) { bestScore=s; best=e; }
+  }
+  if (best && bestScore >= thr) {
+    best.count++;
+    totalMerges++;
+    document.getElementById('sbMerges').textContent = totalMerges;
+    log('merge', `"${proposed}" → merged into "${best.name}" (${(bestScore*100).toFixed(0)}% match)`);
+    showToast(`Merged: <strong>"${proposed}"</strong> → <strong>"${best.name}"</strong>`, 'merge');
+    return best.name;
+  }
+
+  existing.push({name:proposed, count:1});
+  return proposed;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AI CLASSIFIER
+// ══════════════════════════════════════════════════════════════════════════════
+async function classifyFile(file, ext, content) {
+  const apiKey    = document.getElementById('apiKeyInput').value.trim();
+  const provider  = document.getElementById('aiProvider').value;
+  const isPro     = document.getElementById('tierToggle').checked;
+  const rawCustom = document.getElementById('customCategories').value.trim();
+  const tempVal   = parseFloat(document.getElementById('aiCreativity').value);
+  if (!apiKey) throw new Error('No API key');
+
+  const customArray    = rawCustom ? rawCustom.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  const existingForExt = (subCatMemory[ext]||[]).map(e=>e.name);
+  const existingBlock  = existingForExt.length
+    ? existingForExt.map(f=>`  • ${f}`).join('\n')
+    : '  (none yet — you are creating the very first folder for this file type)';
+
+  const userMsg = [
+    `File: ${file.name}`,
+    `Extension: .${(file.name.split('.').pop()||'').toLowerCase()}`,
+    `Size: ${fmtSize(file.size)}`,
+    `Read method: ${content.method}`,
+    '',
+    '═'.repeat(50),
+    'FILE CONTENT:',
+    '═'.repeat(50),
+    content.contentBlock
+  ].join('\n');
+
+  const sysPrompt = `You are an expert archivist who classifies documents by reading and understanding their actual content and subject matter.
+
+EXISTING FOLDERS FOR THIS FILE TYPE (.${ext.toLowerCase()} files):
+${existingBlock}
+
+════════════════════════════════════════
+YOUR TASK
+════════════════════════════════════════
+Read the file content carefully. Assign ONE descriptive folder name that captures:
+— The SUBJECT MATTER (what topic or domain?)
+— The DOCUMENT TYPE (textbook, research paper, invoice, dataset, syllabus, field report, etc.)
+— Any SPECIFIC ENTITY or PROJECT (institution, species, acronym, product name)
+
+NAMING STANDARD:
+• 3 to 6 words · Title Case · Specific and descriptive
+• Good examples:
+    "Botany Research Field Studies"
+    "Ficus Benghalensis Growth Analysis"
+    "NAAC Accreditation Reports"
+    "University Semester Course Syllabi"
+    "Quarterly Financial Statements"
+    "Patient Medical Case Records"
+    "Software Architecture Design"
+    "Environmental Impact Assessments"
+    "UUCMS Student Enrollment Data"
+
+DECISION ORDER:
+1. READ CONTENT — ignore the filename, understand what the document actually IS
+2. REUSE EXACT — if content clearly fits an existing folder above, return it CHARACTER-FOR-CHARACTER
+3. ACRONYMS ARE SACRED — if an institutional code appears (UUCMS, NAAC, ESG, DHI, WHO), include it
+4. CREATE THOUGHTFULLY — new folder only if nothing fits; prefer slightly broader over too narrow
+
+NEVER RESPOND WITH: "Unclassified" "Unknown" "Miscellaneous" "Other" "General" "Various" "Documents" "Files" "Folder" "Category" "Data" "Content" "Material"${
+    customArray.length ? `\n\nROUTER MODE: You MUST pick from: [${customArray.join(', ')}]. Choose the best fit.` : ''
+  }
+
+Respond with ONLY the folder name. No quotes, no period at end, no explanation.`;
+
+  let url='', hdrs={}, body={};
+
+  if (provider==='anthropic') {
+    url  = 'https://api.anthropic.com/v1/messages';
+    hdrs = {'Content-Type':'application/json','x-api-key':apiKey,
+            'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-ipc':'true'};
+    const c = [];
+    if (content.isImage) c.push({type:'image',source:{type:'base64',media_type:content.mime,data:content.b64}});
+    else if (content.isPDF) c.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:content.b64}});
+    c.push({type:'text',text:userMsg});
+    body = {model:'claude-haiku-4-5-20251001',max_tokens:80,temperature:tempVal,
+            system:sysPrompt,messages:[{role:'user',content:c}]};
+
+  } else if (provider==='openai') {
+    url  = 'https://api.openai.com/v1/chat/completions';
+    hdrs = {'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`};
+    const c = [];
+    if (content.isImage) c.push({type:'image_url',image_url:{url:`data:${content.mime};base64,${content.b64}`}});
+    c.push({type:'text',text:userMsg});
+    body = {model:'gpt-4o-mini',max_tokens:80,temperature:tempVal,
+            messages:[{role:'system',content:sysPrompt},{role:'user',content:c}]};
+
+  } else { // google
+    url  = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    hdrs = {'Content-Type':'application/json'};
+    const parts = [];
+    if (content.isImage||content.isPDF) parts.push({inlineData:{mimeType:content.mime,data:content.b64}});
+    parts.push({text:userMsg});
+    body = {systemInstruction:{parts:[{text:sysPrompt}]},
+            contents:[{role:'user',parts}],
+            generationConfig:{maxOutputTokens:80,temperature:tempVal}};
+  }
+
+  let resp, retries=5, delay=10000;
+  while (retries >= 0) {
+    resp = await fetch(url, {method:'POST',headers:hdrs,body:JSON.stringify(body)});
+    if (resp.status===429 && retries>0) {
+      retries--; log('warn',`Rate limited — retry in ${delay/1000}s`);
+      await sleep(delay); delay=Math.min(delay*2,60000); continue;
+    }
+    break;
+  }
+  if (!resp.ok) { const e=await resp.json().catch(()=>({})); throw new Error(e.error?.message||`HTTP ${resp.status}`); }
+
+  const data = await resp.json();
+  let raw = '';
+  if (provider==='anthropic') raw=data.content?.[0]?.text||'';
+  else if (provider==='openai') raw=data.choices?.[0]?.message?.content||'';
+  else raw=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+
+  // Sanitize
+  let cat = raw
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g,'')
+    .replace(/[\r\n]+/g,' ').replace(/\s+/g,' ')
+    .replace(/^["'\s]+|["'\s.]+$/g,'').trim();
+
+  if (customArray.length) {
+    const m = customArray.find(c =>
+      c.toLowerCase()===cat.toLowerCase() ||
+      cat.toLowerCase().includes(c.toLowerCase()) ||
+      c.toLowerCase().includes(cat.toLowerCase()));
+    cat = m || customArray[0];
+  }
+
+  const BAD = new Set(['unclassified','unknown','none','miscellaneous','other','general',
+    'various','documents','files','folder','category','data','content','material','items','mixed']);
+  const words = cat.toLowerCase().split(' ');
+  if (!cat || (words.length<=1 && BAD.has(words[0]))) cat = 'Uncategorized Content';
+  return cat;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LIVE TREE
+// ══════════════════════════════════════════════════════════════════════════════
+function treeAdd(ext, sub) {
+  if (!treeState[ext]) treeState[ext]={};
+  treeState[ext][sub] = (treeState[ext][sub]||0)+1;
+  const out = document.getElementById('treeOut');
+  let html = '';
+  for (const e of Object.keys(treeState).sort()) {
+    const tot = Object.values(treeState[e]).reduce((a,b)=>a+b,0);
+    html += `<div class="tree-node tree-ext">${getIcon(e)} ${e}/<span class="tree-count"> (${tot})</span></div>`;
+    for (const [s,c] of Object.entries(treeState[e]).sort((a,b)=>b[1]-a[1]))
+      html += `<div class="tree-node tree-sub">${s}<span class="tree-count"> ${c}</span></div>`;
+  }
+  out.innerHTML = html || '<div style="color:var(--muted);font-style:italic;font-size:11px">Building…</div>';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FILE SYSTEM HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+const activeWrites = new Set();
+async function safeWrite(dir, file) {
+  let target=file.name, att=0;
+  while(att<50) {
+    if(activeWrites.has(target)){att++;target=renameFn(file.name,att);continue;}
+    try{ await dir.getFileHandle(target); att++;target=renameFn(file.name,att); }
+    catch(e){
+      if(e.name==='NotFoundError'){
+        activeWrites.add(target);
+        try{const fh=await dir.getFileHandle(target,{create:true});const ws=await fh.createWritable();await file.stream().pipeTo(ws);activeWrites.delete(target);return target;}
+        catch(we){activeWrites.delete(target);throw we;}
+      }
+      throw e;
+    }
+  }
+  throw new Error('Max renames exceeded');
+}
+function renameFn(n,i){const d=n.lastIndexOf('.');return d>0?n.slice(0,d)+`_(${i})`+n.slice(d):n+`_(${i})`;}
+async function getOrCreateDir(p,n){return p.getDirectoryHandle(n,{create:true});}
+async function processBatch(items,limit,fn){
+  const running=new Set();
+  for(const item of items){const p=fn(item).finally(()=>running.delete(p));running.add(p);if(running.size>=limit)await Promise.race(running);}
+  await Promise.all(running);
+}
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN SEGREGATION ENGINE
+// ══════════════════════════════════════════════════════════════════════════════
+async function startSegregate() {
+  if (!destHandle){alert('Please select a destination folder.');return;}
+  const aiOn  = document.getElementById('aiToggle').checked;
+  const isPro = document.getElementById('tierToggle').checked;
+  const prov  = document.getElementById('aiProvider').value;
+  if (aiOn && !document.getElementById('apiKeyInput').value.trim()){alert('API key required.');return;}
+
+  document.getElementById('goBtn').disabled=true;
+  document.getElementById('logPanel').classList.add('on');
+  document.getElementById('doneBanner').classList.remove('on');
+  document.getElementById('logOut').innerHTML='';
+  document.getElementById('treeOut').innerHTML='';
+  subCatMemory={}; treeState={}; totalMerges=0; totalErrors=0;
+  notifiedThresholds.clear(); sessionLogReport=[];
+  ['sbMerges','sbErrors'].forEach(id=>document.getElementById(id).textContent='0');
+  document.getElementById('sbAiCalls').textContent='0';
+
+  sessionLogReport.push(`FILE SEGREGATOR AI — REPORT\nDate: ${new Date().toLocaleString()}\nMode: ${aiOn?`AI (${prov} ${isPro?'PRO':'FREE'})`:'Extension Only'}\nDest: ${destHandle.name}\n${'─'.repeat(60)}\n`);
+
+  setStatus('on','PROCESSING');sbSet('copy','PROCESSING');sbStartTimer();
+  document.getElementById('badge1').classList.add('active');
+
+  const extDirCache={}, subDirCache={};
+  let done=0, aiCalls=0;
+  const limitObj = API_LIMITS[prov][isPro?'pro':'free'];
+  const reqDelay = (aiOn && !isPro) ? Math.ceil((60/limitObj.rpm)*1000) : 0;
+
+  log('info',`Parsers — PDF.js:${typeof pdfjsLib!=='undefined'?'✓':'✗'} mammoth:${typeof mammoth!=='undefined'?'✓':'✗'} SheetJS:${typeof XLSX!=='undefined'?'✓':'✗'}`);
+  log('info',`Mode: ${aiOn?prov.toUpperCase()+' AI':'EXTENSION ONLY'} | Throttle: ${reqDelay}ms | Concurrency: ${aiOn?(isPro?5:1):25}`);
+
+  const processFile = async (f) => {
+    const ext    = (f.name.includes('.') ? f.name.split('.').pop() : '').toLowerCase();
+    const extKey = ext ? ext.toUpperCase() : 'NO_EXTENSION';
+
+    if (!extDirCache[extKey]) {
+      try { extDirCache[extKey] = await getOrCreateDir(destHandle, extKey); }
+      catch(e){ totalErrors++;log('err',`Cannot create ${extKey}/`);sbUpdate(done,allFiles.length,totalErrors);return; }
+    }
+    const extDir = extDirCache[extKey];
+    let subcat = null;
+
+    if (aiOn) {
+      sbSet('classify','PARSING'); sbAct('📖',`Parsing: ${f.name}`,true);
+      try {
+        // ── REAL CONTENT EXTRACTION ──
+        const content = await extractFileContent(f, isPro);
+        log('info', `  ↳ ${content.method}`);
+
+        sbSet('classify','AI CLASSIFY'); sbAct('🤖',`Classifying: ${f.name}`,true);
+        const aiSuggestion = await classifyFile(f, extKey, content);
+        aiCalls++;
+        document.getElementById('sbAiCalls').textContent = aiCalls;
+
+        // Dedup
+        subcat = resolveCategory(aiSuggestion, extKey);
+        log('lai', `${f.name}  →  ${extKey}/${subcat}${aiSuggestion!==subcat?`  [AI proposed: "${aiSuggestion}"]`:''}`);
+        sessionLogReport.push(`[OK] ${f.webkitRelativePath}  →  /${extKey}/${subcat}/${f.name}`+(aiSuggestion!==subcat?` (merged from "${aiSuggestion}")`:''));
+
+        // Quota alert
+        const pct=(aiCalls/limitObj.rpd)*100;
+        for(const th of ALERT_THRESHOLDS){
+          if(pct>=th&&!notifiedThresholds.has(th)){
+            notifiedThresholds.add(th);
+            showToast(`Used <strong>${th}%</strong> of daily quota (${aiCalls}/${limitObj.rpd})`,'warn');
+          }
+        }
+        if(reqDelay>0) await sleep(reqDelay);
+
+      } catch(e) {
+        subcat='Unrouted';
+        log('warn',`AI failed for ${f.name}: ${e.message} → Unrouted`);
+        sessionLogReport.push(`[WARN] ${f.webkitRelativePath}  →  AI failed → /Unrouted/`);
+      }
+
+      const key = `${extKey}::${subcat}`;
+      if (!subDirCache[key]) {
+        try { subDirCache[key] = await getOrCreateDir(extDir, subcat); }
+        catch(e){ subDirCache[key] = await getOrCreateDir(extDir,'Unrouted'); subcat='Unrouted'; }
+      }
+    }
+
+    const targetDir = aiOn ? subDirCache[`${extKey}::${subcat}`] : extDir;
+    sbSet(aiOn?'classify':'copy','WRITING');
+
+    try {
+      const written = await safeWrite(targetDir, f);
+      done++;
+      const pct = Math.round((done/allFiles.length)*100);
+      document.getElementById('pb').style.width = pct+'%';
+      document.getElementById('ppct').textContent = pct+'%';
+      treeAdd(extKey, aiOn ? subcat : '(extension only)');
+      if(!aiOn){ log('ok',`/${extKey}/${written}`); sessionLogReport.push(`[OK] ${f.webkitRelativePath}  →  /${extKey}/${written}`); }
+      sbUpdate(done,allFiles.length,totalErrors);
+    } catch(e) {
+      totalErrors++;
+      log('err',`Write failed: ${f.name}: ${e.message}`);
+      sessionLogReport.push(`[ERROR] ${f.webkitRelativePath}  →  ${e.message}`);
+      sbUpdate(done,allFiles.length,totalErrors);
+    }
+  };
+
+  const CONC = aiOn ? (isPro?5:1) : 25;
+  await processBatch(allFiles, CONC, processFile);
+
+  // Write report
+  try {
+    sessionLogReport.push(`\n${'─'.repeat(60)}\nSUMMARY\nFiles: ${done} | Errors: ${totalErrors} | AI calls: ${aiCalls} | Merges: ${totalMerges}\n\nFOLDER STRUCTURE:`);
+    for(const[e,cats]of Object.entries(subCatMemory)){
+      sessionLogReport.push(`  ${e}/`);
+      cats.forEach(c=>sessionLogReport.push(`    └─ ${c.name}/ (${c.count} files)`));
+    }
+    const rh = await destHandle.getFileHandle('Segregation_Report.txt',{create:true});
+    const rw = await rh.createWritable();
+    await rw.write(sessionLogReport.join('\n'));
+    await rw.close();
+    log('info','📄 Segregation_Report.txt written to destination.');
+  } catch(e){log('warn','Could not write report: '+e.message);}
+
+  document.getElementById('badge2').classList.add('active');
+  const banner = totalErrors
+    ? `⚠ DONE — ${done} copied · ${totalErrors} failed · ${totalMerges} merges`
+    : `✓ COMPLETE — ${done} files · ${totalMerges} folder merges · ${aiCalls} AI calls`;
+  document.getElementById('doneBanner').textContent = banner;
+  document.getElementById('doneBanner').classList.add('on');
+  setStatus('on', totalErrors?'ERRORS':'COMPLETE');
+  sbStopTimer(); sbSet('done','COMPLETE'); sbAct('✓','Segregation complete',false);
+  document.getElementById('goBtn').disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UI CONTROLLERS & HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+function updateQuotaInfo(){
+  const prov=document.getElementById('aiProvider').value, isPro=document.getElementById('tierToggle').checked;
+  const badge=document.getElementById('modelBadge'),lbl=document.getElementById('tierLabel');
+  const inp=document.getElementById('apiKeyInput');
+  lbl.textContent=isPro?'PRO':'FREE'; lbl.style.color=isPro?'var(--warn)':'var(--muted)';
+  if(prov==='google'){inp.placeholder='AIza...';badge.textContent='gemini-2.5-flash';}
+  else if(prov==='openai'){inp.placeholder='sk-proj-...';badge.textContent='gpt-4o-mini';}
+  else{inp.placeholder='sk-ant-api03-...';badge.textContent='claude-haiku-4-5';}
+  const lim=API_LIMITS[prov][isPro?'pro':'free'];
+  document.getElementById('qSpeed').textContent=`${lim.rpm} req/min`;
+  document.getElementById('qDaily').textContent=`${lim.rpd.toLocaleString()} req/day`;
+  onApiKeyChange();
+}
+function onAiToggle(){
+  const on=document.getElementById('aiToggle').checked;
+  document.getElementById('toggleLabel').textContent=on?'ENABLED':'DISABLED';
+  document.getElementById('toggleLabel').className='toggle-label'+(on?' on':'');
+  document.getElementById('sumAiMode').textContent=on?'ON':'OFF';
+  document.getElementById('sumAiMode').style.color=on?'var(--ai)':'var(--muted)';
+}
+function onApiKeyChange(){
+  const key=document.getElementById('apiKeyInput').value.trim();
+  const prov=document.getElementById('aiProvider').value;
+  const dot=document.getElementById('apiDot'),txt=document.getElementById('apiStatusText');
+  if(!key){dot.style.background='var(--muted)';txt.textContent='No key entered';return;}
+  const valid=(prov==='anthropic'&&key.startsWith('sk-ant-'))||(prov==='openai'&&key.startsWith('sk-'))||(prov==='google'&&key.length>20);
+  dot.style.cssText=`width:6px;height:6px;border-radius:50%;background:${valid?'var(--accent3)':'#ff4444'};box-shadow:0 0 4px ${valid?'var(--accent3)':'#ff4444'}`;
+  txt.textContent=valid?'Key format valid ✓':'Key format mismatch ✗';
+}
+function toggleKeyVis(){const i=document.getElementById('apiKeyInput'),b=document.getElementById('showKeyBtn');i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'show':'hide';}
+async function pickDest(){
+  try{destHandle=await window.showDirectoryPicker({mode:'readwrite'});document.getElementById('destLabel').textContent=`📁 ${destHandle.name}`;document.getElementById('destBox').classList.add('dest-set');checkScanReady();if(allFiles.length)buildSummary();}
+  catch(e){if(e.name!=='AbortError')alert('Could not open destination: '+e.message);}
+}
+function checkScanReady(){const r=allFiles.length>0&&destHandle!==null;document.getElementById('scanBtn').disabled=!r;document.getElementById('scanHint').textContent=r?`${allFiles.length} files loaded — click Scan & Preview`:'Select source & destination folders first';}
+function onSrcChange(i){
+  allFiles=Array.from(i.files);if(!allFiles.length)return;
+  if(allFiles.length>10000){alert('Max 10,000 files per run.');resetAll();return;}
+  const t=allFiles[0].webkitRelativePath.split('/')[0];
+  document.getElementById('srcLabel').textContent=`📁 ${t} (${allFiles.length} files)`;
+  document.getElementById('srcBox').classList.add('src-set');
+  checkScanReady();document.getElementById('summaryPanel').classList.remove('on');document.getElementById('logPanel').classList.remove('on');
+  setStatus('on','SOURCE LOADED');sbSet('loading','SOURCE LOADED');sbAct('📂',`${t} — ${allFiles.length} files`,true);sbUpdate(0,allFiles.length,0);
+}
+function buildSummary(){
+  if(!allFiles.length)return;
+  const cm={};allFiles.forEach(f=>{const c=getCat(f.name);if(!cm[c])cm[c]={count:0,size:0};cm[c].count++;cm[c].size+=f.size;});
+  const t=allFiles.reduce((a,f)=>a+f.size,0);
+  document.getElementById('sumSrc').textContent=allFiles[0].webkitRelativePath.split('/')[0];
+  document.getElementById('sumDest').textContent=destHandle?destHandle.name:'—';
+  document.getElementById('sumFiles').textContent=allFiles.length;
+  document.getElementById('sumSize').textContent=fmtSize(t);
+  document.getElementById('sumCats').textContent=document.getElementById('sumFolders').textContent=Object.keys(cm).length;
+  document.getElementById('sumZipSize').textContent=fmtSize(t);
+  const P=['#00d4ff','#ff6b35','#39ff14','#ffd700','#b06aff','#ff6b9d','#f59e0b','#3b82f6'];
+  const grid=document.getElementById('catGrid');grid.innerHTML='';let ci=0;
+  Object.entries(cm).sort((a,b)=>b[1].count-a[1].count).forEach(([n,d])=>{
+    const c=document.createElement('div');c.className='ccard';c.style.setProperty('--ext-color',P[ci++%P.length]);
+    c.innerHTML=`<div class="cicon">${getIcon(n)}</div><div class="ccat">${n==='NO_EXTENSION'?'No Ext':'.'+n.toLowerCase()}</div><div class="ccount">${d.count}</div><div class="csize">${fmtSize(d.size)}</div>`;
+    grid.appendChild(c);
+  });
+  const list=document.getElementById('fileList');list.innerHTML='';
+  document.getElementById('fcLabel').textContent=`(${allFiles.length} files)`;
+  allFiles.forEach(f=>{const r=document.createElement('div');r.className='frow';r.innerHTML=`<span class="fname" title="${f.webkitRelativePath}">${f.webkitRelativePath}</span><span class="fsize">${fmtSize(f.size)}</span><span class="fcat">${getCat(f.name)}</span>`;list.appendChild(r);});
+  document.getElementById('summaryPanel').classList.add('on');
+  setStatus('on','READY');sbSet('ready','READY');sbAct('🔍',`${allFiles.length} files ready`,true);
+}
+function getCat(f){const e=f.includes('.')?f.split('.').pop().toLowerCase():'';return e?e.toUpperCase():'NO_EXTENSION';}
+function getIcon(e){return EXT_META[e.toLowerCase()]||'📦';}
+function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(2)+' GB';}
+function log(t,m){const o=document.getElementById('logOut'),d=document.createElement('div');d.className='lline';const ic={ok:'✓',err:'✗',info:'·',warn:'⚠',lai:'🤖',merge:'⇢'};d.innerHTML=`<span class="ltime">[${new Date().toTimeString().slice(0,8)}]</span><span class="l${t}">${ic[t]||'·'}</span><span class="lmsg">${esc(m)}</span>`;o.appendChild(d);o.scrollTop=o.scrollHeight;}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function setStatus(c,t){document.getElementById('sdot').className='sdot'+(c?' '+c:'');document.getElementById('stxt').textContent=t;}
+function sbSet(s,l){document.getElementById('sbDot').className=`sb-dot ${s}`;document.getElementById('sbLabel').className=`sb-plabel ${s}`;document.getElementById('sbLabel').textContent=l;}
+function sbAct(i,t,a){document.getElementById('sbIcon').textContent=i;document.getElementById('sbText').textContent=t;document.getElementById('sbText').className='sb-act-text'+(a?' active':'');}
+function sbUpdate(d,t,e){_sbDone=d;_sbTotal=t;document.getElementById('sbFiles').textContent=t?`${d} / ${t}`:'—';document.getElementById('sbProg').textContent=t?`${Math.round((d/t)*100)}%`:'—';document.getElementById('sbErrors').textContent=e;document.getElementById('sbErrors').className=`sb-val${e>0?' warn':''}`;}
+function sbStartTimer(){_sbStart=Date.now();if(_sbTimer)clearInterval(_sbTimer);_sbTimer=setInterval(()=>{const s=Math.floor((Date.now()-_sbStart)/1000);document.getElementById('sbElapsed').textContent=`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;document.getElementById('sbSpeed').textContent=s>0?`${(_sbDone/s).toFixed(1)} f/s`:'0.0 f/s';},1000);}
+function sbStopTimer(){if(_sbTimer){clearInterval(_sbTimer);_sbTimer=null;}}
+function showToast(msg,type='warn'){const c=document.getElementById('toast-container');const t=document.createElement('div');t.className=`toast${type==='merge'?' merge':''}`;t.innerHTML=`<strong>${type==='merge'?'🔀 Folder Merged':'⚠️ Quota Alert'}</strong>${msg}`;c.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(120%)';t.style.transition='.3s';setTimeout(()=>t.remove(),300);},type==='merge'?4000:7000);}
+function resetAll(){
+  allFiles=[];destHandle=null;subCatMemory={};treeState={};totalMerges=0;totalErrors=0;
+  document.getElementById('srcInput').value='';
+  document.getElementById('srcLabel').textContent='Click to select source folder';
+  document.getElementById('srcBox').classList.remove('src-set');
+  document.getElementById('destLabel').textContent='Click to select destination folder';
+  document.getElementById('destBox').classList.remove('dest-set');
+  document.getElementById('scanBtn').disabled=true;
+  document.getElementById('summaryPanel').classList.remove('on');
+  document.getElementById('logPanel').classList.remove('on');
+  document.getElementById('doneBanner').classList.remove('on');
+  document.getElementById('pb').style.width='0%';
+  document.getElementById('ppct').textContent='0%';
+  ['badge1','badge2'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById('goBtn').disabled=false;
+  setStatus('','IDLE');sbStopTimer();_sbStart=_sbDone=_sbTotal=0;
+  sbSet('idle','IDLE');sbAct('—','No operation in progress',false);
+  ['sbFiles','sbProg','sbSpeed','sbElapsed'].forEach(id=>document.getElementById(id).textContent='—');
+  ['sbErrors','sbMerges'].forEach(id=>document.getElementById(id).textContent='0');
+  document.getElementById('sbAiCalls').textContent='—';
+}
+
+window.addEventListener('load', () => { checkParsers(); updateQuotaInfo(); });
+</script>
+</body>
+</html>
